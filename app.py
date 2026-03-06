@@ -403,17 +403,21 @@ Nodes represent unique k-mers and directed edges represent adjacency relationshi
 """)
 
     uploaded_fasta = st.file_uploader("Upload FASTA file", type=["fasta", "fa"], key="module1_fasta")
-    default_seqs = "ATGCGTAC\nATGCATAC\nATGCGTGC\nATGCGTAC"
-
+    initial_seqs = "ATGCGTAC\nATGCATAC\nATGCGTAC\nATGCCTAC"
+    example_seqs = "ATGCGTAC\nATGCGTGC\nATGCATAC\nATGCGTAC\nATGAGTAC"
 
     if "module1_seq_input" not in st.session_state:
-        st.session_state["module1_seq_input"] = default_seqs
+        st.session_state.module1_seq_input = initial_seqs
 
     if st.button("Load Example Sequences", key="module1_example_btn"):
-        st.session_state["module1_seq_input"] = default_seqs
+        st.session_state.module1_seq_input = example_seqs
+        st.success("Example sequences loaded. You can now click 'Generate Pangenome Graph'.")
+        st.rerun()
 
     seq_input = st.text_area("Enter DNA Sequences (one per line):", key="module1_seq_input", height=120)
     kmer_size = st.slider("Select k-mer size", min_value=2, max_value=7, value=3)
+
+    st.info("Suggested screenshot workflow: 1) Load example sequences → 2) Generate graph → 3) Capture graph + conservation plot.")
 
     if st.button("Generate Pangenome Graph"):
         typed_sequences = [sanitize_dna_sequence(s) for s in seq_input.split("\n") if s.strip()]
