@@ -356,6 +356,10 @@ st.sidebar.info("Developed by: **Yashwant Nama**")
 
 if page == "Home - Overview":
     st.title("PanGen-AI Suite: Integrated Computational Genomics")
+    st.caption(
+        "A modular computational genomics platform integrating pangenome graph analysis, "
+        "AI-based variant impact prediction, and compressed genome indexing algorithms."
+    )
     st.markdown(
         """
 - Module 1: Graph-based pangenome + conservation + FASTA upload + exports
@@ -394,6 +398,7 @@ elif page == "Module 1: Pangenome Explorer":
             c3.metric("Graph Edges", graph.number_of_edges())
 
             if graph.number_of_nodes() > 0:
+                st.caption("Graph nodes represent k-mers and edges represent adjacency relationships between k-mers across sequences.")
                 fig = build_interactive_graph_figure(graph)
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -441,6 +446,7 @@ elif page == "Module 2: DeepNCV (AI Variant Caller)":
             else:
                 score = predict_functional_impact(seq, seed=int(seed))
                 st.metric("Impact Score", f"{score:.4f}")
+                st.caption("ImpactScore: predicted functional impact probability")
 
                 sal = compute_saliency(seq, seed=int(seed))
                 sfig, sax = plt.subplots(figsize=(11, 3.5))
