@@ -124,31 +124,31 @@ elif page == "Module 2: DeepNCV (AI Variant Caller)":
 
 # --- PAGE 4: MODULE 3 (Geno-Compressor) ---
 elif page == "Module 3: Geno-Compressor (BWT)":
-st.title("Module 3: Geno-Compressor")
-st.subheader("Pangenomic Data Structures & Compression")
-st.markdown("Demonstrating the Burrows-Wheeler Transform (BWT) for memory-efficient genomic data storage. BWT groups runs of identical characters, making it highly compressible via Run-Length Encoding (RLE) and forms the basis of the FM-index used in modern aligners.")
-
-# User Input
-sequence_input = st.text_input("Enter a short DNA sequence to compress:", value="GATTACA")
-
-if st.button("Compress Sequence"):
-    if sequence_input:
-        # Run the BWT
-        bwt_result, sorted_rotations = generate_bwt(sequence_input)
-        
-        st.success("Transformation Complete!")
-        
-        # Display Results in Columns for a clean look
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.metric(label="Original Sequence", value=sequence_input)
-            st.metric(label="BWT Output (Last Column)", value=bwt_result)
+    st.title("Module 3: Geno-Compressor")
+    st.subheader("Pangenomic Data Structures & Compression")
+    st.markdown("Demonstrating the Burrows-Wheeler Transform (BWT) for memory-efficient genomic data storage. BWT groups runs of identical characters, making it highly compressible via Run-Length Encoding (RLE) and forms the basis of the FM-index used in modern aligners.")
+    
+    # User Input
+    sequence_input = st.text_input("Enter a short DNA sequence to compress:", value="GATTACA")
+    
+    if st.button("Compress Sequence"):
+        if sequence_input:
+            # Run the BWT
+            bwt_result, sorted_rotations = generate_bwt(sequence_input)
             
-        with col2:
-            # Show the magic of reversing it
-            reconstructed = inverse_bwt(bwt_result)
-            st.metric(label="Reconstructed Sequence", value=reconstructed)
+            st.success("Transformation Complete!")
+            
+            # Display Results in Columns for a clean look
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric(label="Original Sequence", value=sequence_input)
+                st.metric(label="BWT Output (Last Column)", value=bwt_result)
+                
+            with col2:
+                # Show the magic of reversing it
+                reconstructed = inverse_bwt(bwt_result)
+                st.metric(label="Reconstructed Sequence", value=reconstructed)
             
         # Optional: Show the math behind it (The sorted matrix)
         with st.expander("Show Lexicographical Matrix (How it works)"):
