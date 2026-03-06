@@ -230,8 +230,7 @@ def build_interactive_graph_figure(graph: nx.DiGraph):
     fig = go.Figure(
         data=[edge_trace, node_trace],
         layout=go.Layout(
-            title="Interactive Pangenome k-mer Graph (Zoom / Pan / Hover)",
-            titlefont_size=16,
+            title=dict(text="Interactive Pangenome k-mer Graph (Zoom / Pan / Hover)", font=dict(size=16)),
             showlegend=False,
             hovermode="closest",
             margin=dict(b=20, l=20, r=20, t=50),
