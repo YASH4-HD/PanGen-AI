@@ -1,4 +1,47 @@
 import streamlit as st
+def generate_bwt(sequence: str) -> str:
+    """
+    Generates the Burrows-Wheeler Transform of a given DNA sequence.
+    """
+    # 1. Append the special End-of-String (EOS) character '$'
+    # '$' is lexicographically smaller than A, C, G, T
+    seq = sequence.upper() + '$'
+    
+    # 2. Generate all cyclic rotations of the sequence
+    # Example for "ACA$": ["ACA$", "CA$A", "A$AC", "$ACA"]
+    rotations = [seq[i:] + seq[:i] for i in range(len(seq))]
+    
+    # 3. Sort the rotations lexicographically
+    rotations.sort()
+    
+    # 4. Extract the last column of the sorted matrix
+    bwt_string = ''.join([rotation[-1] for rotation in rotations])
+    
+    return bwt_string, rotations
+
+def inverse_bwt(bwt_string: str) -> str:
+    """
+    Reconstructs the original DNA sequence from the BWT string.
+    This proves the transformation is lossless.
+    """
+    # Create an empty table with the same number of rows as the length of the BWT string
+    table = [""] * len(bwt_string)
+    
+    # Iteratively rebuild the sorted rotations matrix
+    for _ in range(len(bwt_string)):
+        # Prepend the BWT string (which is the last column) to the table
+        table = [bwt_string[i] + table[i] for i in range(len(bwt_string))]
+        # Sort the rows lexicographically
+        table.sort()
+        
+    # Find the row that ends with the EOS character '$'
+    for row in table:
+        if row.endswith('$'):
+            # Return the original sequence without the '$'
+            return row[:-1]
+            
+    return ""
+
 import pandas as pd
 import numpy as np
 
