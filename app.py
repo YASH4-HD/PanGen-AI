@@ -47,7 +47,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import networkx as nx
+import matplotlib.pyplot as plt
 # 1. Define the 1D-CNN Architecture
 class SimpleDNA_CNN(nn.Module):
     def __init__(self):
@@ -98,6 +99,30 @@ def predict_functional_impact(sequence: str) -> float:
         
     return probability
 
+def build_pangenome_graph(sequences, k=3):
+    """
+    Builds a simple De Bruijn/Sequence graph from multiple DNA sequences.
+    This demonstrates understanding of graph-based pangenomics.
+    """
+    graph = nx.DiGraph()
+
+    for seq in sequences:
+        seq = seq.upper()
+        if len(seq) < k + 1:
+            continue
+
+        # Extract k-mers and build directed edges between adjacent k-mers
+        for i in range(len(seq) - k):
+            kmer_1 = seq[i:i + k]
+            kmer_2 = seq[i + 1:i + k + 1]
+
+            if graph.has_edge(kmer_1, kmer_2):
+                graph[kmer_1][kmer_2]['weight'] += 1
+            else:
+                graph.add_edge(kmer_1, kmer_2, weight=1)
+
+    return graph
+
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="PanGen-AI Suite | Computational Genomics",
@@ -141,20 +166,53 @@ if page == "Home - Overview":
 
 # --- PAGE 2: MODULE 1 (Pangenome Explorer) ---
 elif page == "Module 1: Pangenome Explorer":
-    st.title("Module 1: Pangenome Explorer")
-    st.subheader("Evolutionary Conservation & Variant Analysis")
-    
-    st.markdown("Upload multiple FASTA files or a VCF file to analyze conserved non-coding regions.")
-    
-    uploaded_files = st.file_uploader("Upload Genomic Files (.fasta, .vcf)", accept_multiple_files=True)
-    
-    if st.button("Run Evolutionary Analysis"):
-        if uploaded_files:
-            st.success("Files loaded successfully! (Backend alignment logic will be implemented here)")
-            # Placeholder for future visualization
-            st.code("Processing Multiple Sequence Alignment (MSA)...", language="python")
+    st.title("Module 1: Pangenome Graph Explorer")
+    st.subheader("Graph-Based Sequence Assembly & Conservation")
+    st.markdown("""
+    Modern pangenomics represents genomes as **Sequence Graphs** rather than linear strings.
+    This module takes multiple homologous sequences, extracts *k-mers*, and constructs a directed graph (De Bruijn Graph).
+    Thicker edges represent highly conserved regions (Core Genome), while branching paths represent structural variations (Accessory Genome).
+    """)
+
+    default_seqs = "ATGCGTAC\nATGCATAC\nATGCGTAC\nATGCCTAC"
+    seq_input = st.text_area("Enter DNA Sequences (one per line):", value=default_seqs, height=120)
+    kmer_size = st.slider("Select k-mer size (Resolution):", min_value=2, max_value=5, value=3)
+
+    if st.button("Generate Pangenome Graph"):
+        sequences = [s.strip() for s in seq_input.split('\n') if s.strip()]
+
+        if len(sequences) > 0:
+            with st.spinner("Constructing Graph Topology..."):
+                graph = build_pangenome_graph(sequences, k=kmer_size)
+                num_nodes = graph.number_of_nodes()
+                num_edges = graph.number_of_edges()
+
+                st.success("Pangenome Graph Constructed Successfully!")
+
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Input Sequences", len(sequences))
+                col2.metric("Graph Nodes (k-mers)", num_nodes)
+                col3.metric("Graph Edges", num_edges)
+
+                if num_nodes > 0 and num_edges > 0:
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    pos = nx.spring_layout(graph, seed=42)
+                    weights = [graph[u][v]['weight'] * 2 for u, v in graph.edges()]
+
+                    nx.draw_networkx_nodes(graph, pos, node_size=700, node_color='#4CAF50', alpha=0.9, ax=ax)
+                    nx.draw_networkx_labels(graph, pos, font_size=10, font_color='white', font_weight='bold', ax=ax)
+                    nx.draw_networkx_edges(graph, pos, width=weights, edge_color='#555555', arrowsize=20, ax=ax)
+
+                    plt.title(f"Pangenome Sequence Graph (k={kmer_size})", fontsize=14)
+                    plt.axis('off')
+                    st.pyplot(fig)
+                    plt.close(fig)
+
+                    st.info("💡 **Interpretation:** Nodes represent DNA k-mers. Paths that are shared among multiple sequences have thicker arrows (Core Genome). Branches indicate mutations, SNPs, or structural variations (Accessory Genome).")
+                else:
+                    st.warning("No graph could be built. Ensure each sequence length is at least k+1.")
         else:
-            st.warning("Please upload files to proceed.")
+            st.warning("Please enter at least one DNA sequence.")
 
 # --- PAGE 3: MODULE 2 (DeepNCV) ---
 elif page == "Module 2: DeepNCV (AI Variant Caller)":
@@ -179,51 +237,4 @@ elif page == "Module 2: DeepNCV (AI Variant Caller)":
             
             # Display Results
             st.metric(label="Functional Impact Probability", value=f"{confidence_pct:.2f}%")
-            
-            if confidence_pct > 50:
-                st.info("🧠 Model Prediction: **Active Functional Region (e.g., Enhancer/Promoter)**")
-            else:
-                st.warning("🧠 Model Prediction: **Inactive/Neutral Region**")
-                
-            with st.expander("Show PyTorch Tensor Details"):
-                st.write(f"Sequence Length: {len(clean_seq)} bp")
-                st.write(f"Input Tensor Shape: `[1, 4, {len(clean_seq)}]` (Batch, Channels, Length)")
-                
-        else:
-            st.error("Please enter a valid DNA sequence (minimum 10 base pairs).")
-
-
-# --- PAGE 4: MODULE 3 (Geno-Compressor) ---
-elif page == "Module 3: Geno-Compressor (BWT)":
-    st.title("Module 3: Geno-Compressor")
-    st.subheader("Pangenomic Data Structures & Compression")
-    st.markdown("Demonstrating the Burrows-Wheeler Transform (BWT) for memory-efficient genomic data storage. BWT groups runs of identical characters, making it highly compressible via Run-Length Encoding (RLE) and forms the basis of the FM-index used in modern aligners.")
-    
-    # User Input
-    sequence_input = st.text_input("Enter a short DNA sequence to compress:", value="GATTACA")
-    
-    if st.button("Compress Sequence"):
-        if sequence_input:
-            # Run the BWT
-            bwt_result, sorted_rotations = generate_bwt(sequence_input)
-            
-            st.success("Transformation Complete!")
-            
-            # Display Results in Columns for a clean look
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.metric(label="Original Sequence", value=sequence_input)
-                st.metric(label="BWT Output (Last Column)", value=bwt_result)
-                
-            with col2:
-                # Show the magic of reversing it
-                reconstructed = inverse_bwt(bwt_result)
-                st.metric(label="Reconstructed Sequence", value=reconstructed)
-            
-        # Optional: Show the math behind it (The sorted matrix)
-        with st.expander("Show Lexicographical Matrix (How it works)"):
-            st.code('\n'.join(sorted_rotations))
-            
-    else:
-        st.warning("Please enter a DNA sequence.")
+           
