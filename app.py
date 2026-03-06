@@ -1,3 +1,4 @@
+from deepncv_utils import predict_functional_impact
 import streamlit as st
 def generate_bwt(sequence: str) -> str:
     """
@@ -44,6 +45,60 @@ def inverse_bwt(bwt_string: str) -> str:
 
 import pandas as pd
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+# 1. Define the 1D-CNN Architecture
+class SimpleDNA_CNN(nn.Module):
+    def __init__(self):
+        super(SimpleDNA_CNN, self).__init__()
+        # Input channels = 4 (A, C, G, T one-hot encoded)
+        self.conv1 = nn.Conv1d(in_channels=4, out_channels=16, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
+        # Adaptive pooling allows sequences of any length!
+        self.global_pool = nn.AdaptiveAvgPool1d(1) 
+        self.fc1 = nn.Linear(32, 16)
+        self.fc2 = nn.Linear(16, 1)
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = self.global_pool(x)
+        x = x.view(x.size(0), -1) # Flatten
+        x = F.relu(self.fc1(x))
+        x = torch.sigmoid(self.fc2(x)) # Output probability between 0 and 1
+        return x
+
+# 2. Helper function to One-Hot Encode DNA
+def encode_sequence(seq: str) -> torch.Tensor:
+    """Converts a DNA string into a one-hot PyTorch tensor of shape (1, 4, L)"""
+    mapping = {
+        'A': [1, 0, 0, 0],
+        'C': [0, 1, 0, 0],
+        'G': [0, 0, 1, 0],
+        'T': [0, 0, 0, 1]
+    }
+    # Default to uniform distribution for unknown characters like 'N'
+    encoded = [mapping.get(base.upper(), [0.25, 0.25, 0.25, 0.25]) for base in seq]
+    
+    # Convert to tensor and reshape to (Batch=1, Channels=4, Length=L)
+    tensor = torch.tensor(encoded, dtype=torch.float32).T.unsqueeze(0)
+    return tensor
+
+# 3. Inference Function
+def predict_functional_impact(sequence: str) -> float:
+    # Set seed so the "dummy" untrained model gives consistent results for the demo
+    torch.manual_seed(42) 
+    model = SimpleDNA_CNN()
+    model.eval() # Set to evaluation mode
+    
+    with torch.no_grad():
+        input_tensor = encode_sequence(sequence)
+        output = model(input_tensor)
+        probability = output.item()
+        
+    return probability
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(
