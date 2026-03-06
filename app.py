@@ -371,6 +371,18 @@ if page == "Home - Overview":
 elif page == "Module 1: Pangenome Explorer":
     st.title("Module 1: Pangenome Graph Explorer")
     st.subheader("Graph-Based Sequence Assembly + Conservation Analysis")
+    st.markdown("""
+This module constructs a k-mer based pangenome graph from multiple DNA sequences.
+Nodes represent k-mers and edges represent adjacency relationships between them.
+The module also computes per-position nucleotide conservation to identify conserved and variable regions across sequences.
+""")
+    with st.expander("Method / Algorithm"):
+        st.markdown("""
+**Method**
+The pangenome graph is constructed using a k-mer based adjacency graph.
+Each DNA sequence is decomposed into overlapping k-mers of size k.
+Nodes represent unique k-mers and directed edges represent adjacency relationships between consecutive k-mers across sequences.
+""")
 
     uploaded_fasta = st.file_uploader("Upload FASTA file", type=["fasta", "fa"], key="module1_fasta")
     default_seqs = "ATGCGTAC\nATGCATAC\nATGCGTAC\nATGCCTAC"
@@ -433,7 +445,18 @@ elif page == "Module 1: Pangenome Explorer":
                 )
 
 elif page == "Module 2: DeepNCV (AI Variant Caller)":
-    st.title("Module 2: DeepNCV")
+    st.title("Module 2: DeepNCV (AI Variant Caller)")
+    st.markdown("""
+This module predicts the functional impact of DNA sequence variants using a deep learning model.
+It supports single sequence prediction, mutation impact heatmap generation, and batch analysis.
+Saliency visualization highlights important nucleotide positions contributing to the prediction.
+""")
+    with st.expander("Method / Algorithm"):
+        st.markdown("""
+**Method**
+Variant impact prediction is performed using a convolutional neural network (CNN) trained on encoded DNA sequences.
+Saliency maps are computed using gradient-based attribution to identify nucleotide positions that contribute most to the prediction.
+""")
     tabs = st.tabs(["Single Prediction", "Mutation Impact Heatmap", "Batch Export"])
 
     with tabs[0]:
@@ -535,7 +558,17 @@ elif page == "Module 2: DeepNCV (AI Variant Caller)":
                 )
 
 elif page == "Module 3: Geno-Compressor (BWT)":
-    st.title("Module 3: Geno-Compressor + FM-index")
+    st.title("Module 3: Geno-Compressor + FM-Index")
+    st.markdown("""
+This module demonstrates genome compression and efficient sequence search using the Burrows-Wheeler Transform (BWT) and FM-index.
+It performs sequence compression, reconstruction, and fast pattern matching with step-by-step backward search visualization.
+""")
+    with st.expander("Method / Algorithm"):
+        st.markdown("""
+**Method**
+Genome compression is implemented using the Burrows-Wheeler Transform (BWT).
+Efficient pattern search is performed using the FM-index with backward search to locate occurrences of query patterns in compressed sequences.
+""")
     sequence_input = st.text_input("Enter DNA sequence", value="GATTACAGATTACA")
     pattern = st.text_input("Pattern for FM-index search", value="TACA")
 
