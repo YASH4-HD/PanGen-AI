@@ -1,4 +1,3 @@
-from deepncv_utils import predict_functional_impact
 import streamlit as st
 def generate_bwt(sequence: str) -> str:
     """
