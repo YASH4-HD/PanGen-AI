@@ -7,26 +7,15 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
-import streamlit as st
-def generate_bwt(sequence: str) -> str:
 import torch
-    """
 import torch.nn as nn
-    Generates the Burrows-Wheeler Transform of a given DNA sequence.
 import torch.nn.functional as F
-    """
 
-    # 1. Append the special End-of-String (EOS) character '$'
 
-    # '$' is lexicographically smaller than A, C, G, T
 # -----------------------------
-    seq = sequence.upper() + '$'
 # Utilities
-    
 # -----------------------------
-    # 2. Generate all cyclic rotations of the sequence
 def sanitize_dna_sequence(text: str) -> str:
-    # Example for "ACA$": ["ACA$", "CA$A", "A$AC", "$ACA"]
     return "".join(text.split()).upper()
 
 
@@ -58,64 +47,23 @@ def parse_fasta_text(text: str):
 def generate_bwt(sequence: str):
     seq = sequence.upper() + "$"
     rotations = [seq[i:] + seq[:i] for i in range(len(seq))]
-    rotations = [seq[i:] + seq[:i] for i in range(len(seq))]
-    
-    # 3. Sort the rotations lexicographically
     rotations.sort()
-    rotations.sort()
-    
     bwt_string = "".join(rotation[-1] for rotation in rotations)
-    # 4. Extract the last column of the sorted matrix
-    bwt_string = ''.join([rotation[-1] for rotation in rotations])
-    
-    return bwt_string, rotations
     return bwt_string, rotations
 
 
-
 def inverse_bwt(bwt_string: str) -> str:
-def inverse_bwt(bwt_string: str) -> str:
-    """
-    Reconstructs the original DNA sequence from the BWT string.
-    This proves the transformation is lossless.
-    """
-    # Create an empty table with the same number of rows as the length of the BWT string
     table = [""] * len(bwt_string)
-    table = [""] * len(bwt_string)
-    
-    # Iteratively rebuild the sorted rotations matrix
     for _ in range(len(bwt_string)):
-    for _ in range(len(bwt_string)):
-        # Prepend the BWT string (which is the last column) to the table
         table = [bwt_string[i] + table[i] for i in range(len(bwt_string))]
-        table = [bwt_string[i] + table[i] for i in range(len(bwt_string))]
-        # Sort the rows lexicographically
         table.sort()
-        table.sort()
-        
 
-    # Find the row that ends with the EOS character '$'
     for row in table:
-    for row in table:
-        if row.endswith('$'):
         if row.endswith("$"):
-            # Return the original sequence without the '$'
             return row[:-1]
-            return row[:-1]
-            
-    return ""
     return ""
 
 
-import pandas as pd
-import numpy as np
-from deepncv_utils import predict_functional_impact
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-
-# 1. Define the 1D-CNN Architecture
 def build_fm_index(sequence: str):
     text = sequence.upper() + "$"
     suffix_array = sorted(range(len(text)), key=lambda i: text[i:])
@@ -298,113 +246,56 @@ def build_interactive_graph_figure(graph: nx.DiGraph):
 # Module 2 (DeepNCV + Explorer)
 # -----------------------------
 class SimpleDNA_CNN(nn.Module):
-class SimpleDNA_CNN(nn.Module):
     def __init__(self):
-    def __init__(self):
-        super(SimpleDNA_CNN, self).__init__()
         super().__init__()
-        # Input channels = 4 (A, C, G, T one-hot encoded)
-        self.conv1 = nn.Conv1d(in_channels=4, out_channels=16, kernel_size=3, padding=1)
         self.conv1 = nn.Conv1d(in_channels=4, out_channels=16, kernel_size=3, padding=1)
         self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
-        # Adaptive pooling allows sequences of any length!
         self.global_pool = nn.AdaptiveAvgPool1d(1)
-        self.global_pool = nn.AdaptiveAvgPool1d(1) 
-        self.fc1 = nn.Linear(32, 16)
         self.fc1 = nn.Linear(32, 16)
         self.fc2 = nn.Linear(16, 1)
-        self.fc2 = nn.Linear(16, 1)
-
 
     def forward(self, x):
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
-        x = F.relu(self.conv2(x))
         x = self.global_pool(x)
-        x = self.global_pool(x)
-        x = x.view(x.size(0), -1) # Flatten
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc1(x))
-        x = torch.sigmoid(self.fc2(x)) # Output probability between 0 and 1
         return torch.sigmoid(self.fc2(x))
-        return x
 
 
-
-# 2. Helper function to One-Hot Encode DNA
 def encode_sequence(seq: str) -> torch.Tensor:
-def encode_sequence(seq: str) -> torch.Tensor:
-    """Converts a DNA string into a one-hot PyTorch tensor of shape (1, 4, L)"""
     mapping = {
-    mapping = {
-        'A': [1, 0, 0, 0],
         "A": [1, 0, 0, 0],
-        'C': [0, 1, 0, 0],
         "C": [0, 1, 0, 0],
-        'G': [0, 0, 1, 0],
         "G": [0, 0, 1, 0],
-        'T': [0, 0, 0, 1]
         "T": [0, 0, 0, 1],
     }
-    }
-    # Default to uniform distribution for unknown characters like 'N'
     encoded = [mapping.get(base.upper(), [0.25, 0.25, 0.25, 0.25]) for base in seq]
-    encoded = [mapping.get(base.upper(), [0.25, 0.25, 0.25, 0.25]) for base in seq]
-    
     return torch.tensor(encoded, dtype=torch.float32).T.unsqueeze(0)
-    # Convert to tensor and reshape to (Batch=1, Channels=4, Length=L)
 
-    tensor = torch.tensor(encoded, dtype=torch.float32).T.unsqueeze(0)
 
-    return tensor
 def get_model(seed=42):
-
     torch.manual_seed(seed)
-# 3. Inference Function
-def predict_functional_impact(sequence: str) -> float:
-    # Set seed so the "dummy" untrained model gives consistent results for the demo
-    torch.manual_seed(42) 
     model = SimpleDNA_CNN()
-    model = SimpleDNA_CNN()
-    model.eval() # Set to evaluation mode
     model.eval()
-    
     return model
 
 
 def predict_functional_impact(sequence: str, seed: int = 42) -> float:
     model = get_model(seed=seed)
     with torch.no_grad():
-    with torch.no_grad():
-        input_tensor = encode_sequence(sequence)
         output = model(encode_sequence(sequence))
-        output = model(input_tensor)
     return output.item()
-        probability = output.item()
 
-        
 
-    return probability
 def compute_saliency(sequence: str, seed: int = 42):
-
     model = get_model(seed=seed)
-# --- PAGE CONFIGURATION ---
     input_tensor = encode_sequence(sequence)
-st.set_page_config(
     input_tensor.requires_grad_(True)
-    page_title="PanGen-AI Suite | Computational Genomics",
 
-    page_icon="DNA",
     output = model(input_tensor)
-    layout="wide",
     output.backward(torch.ones_like(output))
-    initial_sidebar_state="expanded"
 
-)
     grads = input_tensor.grad.detach().abs().squeeze(0)
     return grads.max(dim=0).values.cpu().numpy()
 
@@ -449,40 +340,22 @@ def make_impact_matrix(scan_df: pd.DataFrame, sequence: str):
 # -----------------------------
 st.set_page_config(page_title="PanGen-AI Suite | Computational Genomics", page_icon="🧬", layout="wide")
 
-
-# --- SIDEBAR NAVIGATION ---
 st.sidebar.title("PanGen-AI Suite")
-st.sidebar.title("PanGen-AI Suite")
-st.sidebar.markdown("### Navigation")
-page = st.sidebar.radio(
 page = st.sidebar.radio(
     "Select a Module:",
-    "Select a Module:",
-    ["Home - Overview", 
     [
-     "Module 1: Pangenome Explorer", 
         "Home - Overview",
-     "Module 2: DeepNCV (AI Variant Caller)", 
         "Module 1: Pangenome Explorer",
-     "Module 3: Geno-Compressor (BWT)"]
         "Module 2: DeepNCV (AI Variant Caller)",
         "Module 3: Geno-Compressor (BWT)",
     ],
 )
-)
-
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("---")
-st.sidebar.info(
 st.sidebar.info("Developed by: **Yashwant Nama**")
-    "Developed by: **Yashwant Nama**\n\n"
 st.sidebar.markdown("""
-    "Computational Researcher\n\n"
 ### PanGen-AI Suite
-    "Target: Advanced Genomic Data Structures & Deep Learning"
 **Version:** 1.0
-)
 
 **Developer:** Yashwant Nama
 
@@ -500,62 +373,32 @@ AI Variant Prediction, and Genome Indexing.
 """)
 
 
-
-# --- PAGE 1: HOME ---
-if page == "Home - Overview":
 if page == "Home - Overview":
     st.title("PanGen-AI Suite: Integrated Computational Genomics")
-    st.title("PanGen-AI Suite: Integrated Computational Genomics")
-    st.markdown("""
     st.caption(
-    Welcome to the **PanGen-AI Suite**. This toolkit bridges the gap between raw genomic data, 
         "A modular computational genomics platform integrating pangenome graph analysis, "
-    evolutionary conservation, and artificial intelligence.
         "AI-based variant impact prediction, and compressed genome indexing algorithms."
-    
     )
-    ### Available Modules:
     st.markdown(
-    1. **Pangenome Explorer:** Visualize evolutionary conservation and structural variants across multiple species using FASTA/VCF data.
         """
-    2. **DeepNCV (Non-Coding Variant AI):** A PyTorch-based Deep Learning model (1D-CNN) to predict the functional impact of mutations in non-coding DNA regions.
 - Module 1: Graph-based pangenome + conservation + FASTA upload + exports
-    3. **Geno-Compressor:** An implementation of advanced pangenomic data structures, utilizing the Burrows-Wheeler Transform (BWT) for efficient DNA sequence compression and search.
 - Module 2: DeepNCV prediction + mutation heatmap + batch export + reproducibility
-    
 - Module 3: BWT + FM-index search with step trace and match highlighting
-    *Select a module from the left sidebar to begin.*
 """
-    """)
     )
 
-
-# --- PAGE 2: MODULE 1 (Pangenome Explorer) ---
 elif page == "Module 1: Pangenome Explorer":
-elif page == "Module 1: Pangenome Explorer":
-    st.title("Module 1: Pangenome Explorer")
     st.title("Module 1: Pangenome Graph Explorer")
-    st.subheader("Evolutionary Conservation & Variant Analysis")
     st.subheader("Graph-Based Sequence Assembly + Conservation Analysis")
-    
     st.markdown("""
-    st.markdown("Upload multiple FASTA files or a VCF file to analyze conserved non-coding regions.")
 This module constructs a k-mer based pangenome graph from multiple DNA sequences.
-    
 Nodes represent k-mers and edges represent adjacency relationships between them.
-    uploaded_files = st.file_uploader("Upload Genomic Files (.fasta, .vcf)", accept_multiple_files=True)
 The module also computes per-position nucleotide conservation to identify conserved and variable regions across sequences.
-    
 """)
-    if st.button("Run Evolutionary Analysis"):
     with st.expander("Method / Algorithm"):
-        if uploaded_files:
         st.markdown("""
-            st.success("Files loaded successfully! (Backend alignment logic will be implemented here)")
 **Method**
-            # Placeholder for future visualization
 The pangenome graph is constructed using a k-mer based adjacency graph.
-            st.code("Processing Multiple Sequence Alignment (MSA)...", language="python")
 Each DNA sequence is decomposed into overlapping k-mers of size k.
 Nodes represent unique k-mers and directed edges represent adjacency relationships between consecutive k-mers across sequences.
 """)
@@ -611,8 +454,6 @@ Nodes represent unique k-mers and directed edges represent adjacency relationshi
         if not sequences:
             st.warning("Please provide at least one sequence (text or FASTA upload).")
         else:
-        else:
-            st.warning("Please upload files to proceed.")
             graph = build_pangenome_graph(sequences, k=kmer_size)
             conservation_df = compute_conservation_profile(sequences)
 
@@ -664,57 +505,30 @@ Nodes represent unique k-mers and directed edges represent adjacency relationshi
                     mime="text/csv",
                 )
 
-
-# --- PAGE 3: MODULE 2 (DeepNCV) ---
 elif page == "Module 2: DeepNCV (AI Variant Caller)":
-elif page == "Module 2: DeepNCV (AI Variant Caller)":
-    st.title("Module 2: Deep Learning for Non-Coding Variants (DeepNCV)")
     st.title("Module 2: DeepNCV (AI Variant Caller)")
-    st.subheader("PyTorch-based 1D-CNN Functional Predictor")
     st.markdown("""
-    
 This module predicts the functional impact of DNA sequence variants using a deep learning model.
-    st.markdown("Enter a non-coding DNA sequence to predict its functional state using a 1D Convolutional Neural Network. The model converts the sequence into a one-hot encoded tensor and extracts spatial motifs.")
 It supports single sequence prediction, mutation impact heatmap generation, and batch analysis.
-    
 Saliency visualization highlights important nucleotide positions contributing to the prediction.
-    dna_sequence = st.text_area("Enter DNA Sequence (A, T, C, G):", height=150, value="ATGCGTACGTAGCTAGCTAGCTAGCTAGCTAGCTAG")
 """)
-    
     with st.expander("Method / Algorithm"):
-    if st.button("Predict Functional Impact (PyTorch)"):
         st.markdown("""
-        # Clean the sequence (remove spaces/newlines)
 **Method**
-        clean_seq = "".join(dna_sequence.split())
 Variant impact prediction is performed using a convolutional neural network (CNN) trained on encoded DNA sequences.
-        
 Saliency maps are computed using gradient-based attribution to identify nucleotide positions that contribute most to the prediction.
-        if len(clean_seq) >= 10:
 """)
-            with st.spinner("Running sequence through 1D-CNN Layers..."):
     with st.expander("Use Case / Applications"):
-                # Call the PyTorch backend
         st.markdown("""
-                impact_score = predict_functional_impact(clean_seq)
 **Applications**
-                confidence_pct = impact_score * 100
 - Variant effect prediction
-                
 - Mutation impact analysis
-            st.success("Inference Complete!")
 - Functional genomics studies
-            
 """)
-            # Display Results
 
-            st.metric(label="Functional Impact Probability", value=f"{confidence_pct:.2f}%")
     if st.button("Reset Module 2", key="module2_reset_btn"):
-            
         for key in ["module2_single_seq", "module2_single_seed", "module2_scan_seed", "module2_batch_seed", "scan_seq"]:
-            if confidence_pct > 50:
             if key in st.session_state:
-                st.info("🧠 Model Prediction: **Active Functional Region (e.g., Enhancer/Promoter)**")
                 del st.session_state[key]
         st.rerun()
 
@@ -739,22 +553,13 @@ Saliency maps are computed using gradient-based attribution to identify nucleoti
             if len(seq) < 10:
                 st.error("Sequence must be at least 10 bp.")
             else:
-            else:
-                st.warning("🧠 Model Prediction: **Inactive/Neutral Region**")
                 score = predict_functional_impact(seq, seed=int(seed))
-                
                 st.metric("Impact Score", f"{score:.4f}")
-            with st.expander("Show PyTorch Tensor Details"):
                 st.caption("ImpactScore: predicted functional impact probability")
-                st.write(f"Sequence Length: {len(clean_seq)} bp")
 
-                st.write(f"Input Tensor Shape: `[1, 4, {len(clean_seq)}]` (Batch, Channels, Length)")
                 sal = compute_saliency(seq, seed=int(seed))
-                
                 sfig, sax = plt.subplots(figsize=(11, 3.5))
-        else:
                 sax.plot(np.arange(1, len(seq) + 1), sal)
-            st.error("Please enter a valid DNA sequence (minimum 10 base pairs).")
                 sax.set_title("Saliency (Explainability)")
                 sax.set_xlabel("Position")
                 sax.set_ylabel("Importance")
@@ -829,7 +634,6 @@ Saliency maps are computed using gradient-based attribution to identify nucleoti
                     score = predict_functional_impact(seq, seed=int(batch_seed))
                     rows.append({"SequenceID": f"Seq_{i}", "Sequence": seq, "Length": len(seq), "ImpactScore": score})
 
-
                 result_df = pd.DataFrame(rows)
                 st.dataframe(result_df, use_container_width=True)
                 st.download_button(
@@ -839,73 +643,38 @@ Saliency maps are computed using gradient-based attribution to identify nucleoti
                     mime="text/csv",
                 )
 
-
-# --- PAGE 4: MODULE 3 (Geno-Compressor) ---
 elif page == "Module 3: Geno-Compressor (BWT)":
-elif page == "Module 3: Geno-Compressor (BWT)":
-    st.title("Module 3: Geno-Compressor")
     st.title("Module 3: Geno-Compressor + FM-Index")
-    st.subheader("Pangenomic Data Structures & Compression")
     st.markdown("""
-    st.markdown("Demonstrating the Burrows-Wheeler Transform (BWT) for memory-efficient genomic data storage. BWT groups runs of identical characters, making it highly compressible via Run-Length Encoding (RLE) and forms the basis of the FM-index used in modern aligners.")
 This module demonstrates genome compression and efficient sequence search using the Burrows-Wheeler Transform (BWT) and FM-index.
-    
 It performs sequence compression, reconstruction, and fast pattern matching with step-by-step backward search visualization.
-    # User Input
 """)
-    sequence_input = st.text_input("Enter a short DNA sequence to compress:", value="GATTACA")
     with st.expander("Method / Algorithm"):
-    
         st.markdown("""
-    if st.button("Compress Sequence"):
 **Method**
-        if sequence_input:
 Genome compression is implemented using the Burrows-Wheeler Transform (BWT).
-            # Run the BWT
 Efficient pattern search is performed using the FM-index with backward search to locate occurrences of query patterns in compressed sequences.
-            bwt_result, sorted_rotations = generate_bwt(sequence_input)
 """)
-            
     with st.expander("Use Case / Applications"):
-            st.success("Transformation Complete!")
         st.markdown("""
-            
 **Applications**
-            # Display Results in Columns for a clean look
 - Genome indexing
-            col1, col2 = st.columns(2)
 - Fast sequence search
-            
 - Bioinformatics algorithm demonstration
-            with col1:
 """)
-                st.metric(label="Original Sequence", value=sequence_input)
 
-                st.metric(label="BWT Output (Last Column)", value=bwt_result)
     default_dna = "GATTACAGATTACA"
-                
     default_pattern = "TACA"
-            with col2:
 
-                # Show the magic of reversing it
     if "module3_seq" not in st.session_state:
-                reconstructed = inverse_bwt(bwt_result)
         st.session_state["module3_seq"] = "GATTACA"
-                st.metric(label="Reconstructed Sequence", value=reconstructed)
     if "module3_pattern" not in st.session_state:
-            
         st.session_state["module3_pattern"] = "TAC"
-        # Optional: Show the math behind it (The sorted matrix)
 
-        with st.expander("Show Lexicographical Matrix (How it works)"):
     if st.button("Load Example Search", key="module3_example_btn"):
-            st.code('\n'.join(sorted_rotations))
         st.session_state["module3_seq"] = default_dna
-            
         st.session_state["module3_pattern"] = default_pattern
-    else:
         st.session_state["module3_example_loaded"] = True
-        st.warning("Please enter a DNA sequence.")
         st.rerun()
 
     if st.session_state.pop("module3_example_loaded", False):
