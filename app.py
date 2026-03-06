@@ -45,6 +45,7 @@ def inverse_bwt(bwt_string: str) -> str:
 
 import pandas as pd
 import numpy as np
+from deepncv_utils import predict_functional_impact
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -163,19 +164,37 @@ elif page == "Module 2: DeepNCV (AI Variant Caller)":
     st.title("Module 2: Deep Learning for Non-Coding Variants (DeepNCV)")
     st.subheader("PyTorch-based 1D-CNN Functional Predictor")
     
-    st.markdown("Enter a non-coding DNA sequence to predict its functional state (e.g., Active Enhancer vs. Inactive).")
+    st.markdown("Enter a non-coding DNA sequence to predict its functional state using a 1D Convolutional Neural Network. The model converts the sequence into a one-hot encoded tensor and extracts spatial motifs.")
     
-    dna_sequence = st.text_area("Enter DNA Sequence (A, T, C, G):", height=150, placeholder="e.g., ATGCGTACGTAGCTAG...")
-    mutation_pos = st.number_input("Enter Mutation Position (Optional):", min_value=0, value=0)
+    dna_sequence = st.text_area("Enter DNA Sequence (A, T, C, G):", height=150, value="ATGCGTACGTAGCTAGCTAGCTAGCTAGCTAGCTAG")
     
     if st.button("Predict Functional Impact (PyTorch)"):
-        if len(dna_sequence) > 10:
-            st.info("Running sequence through 1D-CNN Model...")
-            # Placeholder for PyTorch inference
-            st.progress(50)
-            st.success("Prediction: Highly Conserved Functional Region (Confidence: 94.2%)")
+        # Clean the sequence (remove spaces/newlines)
+        clean_seq = "".join(dna_sequence.split())
+        
+        if len(clean_seq) >= 10:
+            with st.spinner("Running sequence through 1D-CNN Layers..."):
+                # Call the PyTorch backend
+                impact_score = predict_functional_impact(clean_seq)
+                confidence_pct = impact_score * 100
+                
+            st.success("Inference Complete!")
+            
+            # Display Results
+            st.metric(label="Functional Impact Probability", value=f"{confidence_pct:.2f}%")
+            
+            if confidence_pct > 50:
+                st.info("🧠 Model Prediction: **Active Functional Region (e.g., Enhancer/Promoter)**")
+            else:
+                st.warning("🧠 Model Prediction: **Inactive/Neutral Region**")
+                
+            with st.expander("Show PyTorch Tensor Details"):
+                st.write(f"Sequence Length: {len(clean_seq)} bp")
+                st.write(f"Input Tensor Shape: `[1, 4, {len(clean_seq)}]` (Batch, Channels, Length)")
+                
         else:
             st.error("Please enter a valid DNA sequence (minimum 10 base pairs).")
+
 
 # --- PAGE 4: MODULE 3 (Geno-Compressor) ---
 elif page == "Module 3: Geno-Compressor (BWT)":
