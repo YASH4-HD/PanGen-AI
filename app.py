@@ -44,7 +44,6 @@ def inverse_bwt(bwt_string: str) -> str:
 
 import pandas as pd
 import numpy as np
-from deepncv_utils import predict_functional_impact
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -69,7 +68,6 @@ class SimpleDNA_CNN(nn.Module):
         x = F.relu(self.fc1(x))
         x = torch.sigmoid(self.fc2(x)) # Output probability between 0 and 1
         return x
-
 # 2. Helper function to One-Hot Encode DNA
 def encode_sequence(seq: str) -> torch.Tensor:
     """Converts a DNA string into a one-hot PyTorch tensor of shape (1, 4, L)"""
