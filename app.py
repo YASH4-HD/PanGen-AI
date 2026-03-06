@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 import torch
 import torch.nn as nn
@@ -12,10 +13,38 @@ import torch.nn.functional as F
 
 
 # -----------------------------
+# Utilities
+# -----------------------------
+def sanitize_dna_sequence(text: str) -> str:
+    return "".join(text.split()).upper()
+
+
+def parse_fasta_text(text: str):
+    """Minimal FASTA parser; returns list of DNA sequences."""
+    sequences = []
+    current = []
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith(">"):
+            if current:
+                sequences.append(sanitize_dna_sequence("".join(current)))
+                current = []
+        else:
+            current.append(line)
+
+    if current:
+        sequences.append(sanitize_dna_sequence("".join(current)))
+
+    return [s for s in sequences if s]
+
+
+# -----------------------------
 # Module 3 (Compression + Search)
 # -----------------------------
 def generate_bwt(sequence: str):
-    """Generate Burrows-Wheeler Transform and sorted rotation table."""
     seq = sequence.upper() + "$"
     rotations = [seq[i:] + seq[:i] for i in range(len(seq))]
     rotations.sort()
@@ -24,7 +53,6 @@ def generate_bwt(sequence: str):
 
 
 def inverse_bwt(bwt_string: str) -> str:
-    """Reconstruct original string (without terminal '$') from BWT."""
     table = [""] * len(bwt_string)
     for _ in range(len(bwt_string)):
         table = [bwt_string[i] + table[i] for i in range(len(bwt_string))]
@@ -37,7 +65,6 @@ def inverse_bwt(bwt_string: str) -> str:
 
 
 def build_fm_index(sequence: str):
-    """Build a simple FM-index (suffix array + BWT + C + Occ prefix table)."""
     text = sequence.upper() + "$"
     suffix_array = sorted(range(len(text)), key=lambda i: text[i:])
     bwt = "".join(text[i - 1] if i > 0 else "$" for i in suffix_array)
@@ -69,11 +96,10 @@ def build_fm_index(sequence: str):
     }
 
 
-def fm_backward_search(pattern: str, fm_index: dict):
-    """Return sorted start positions of pattern occurrences using backward search."""
+def fm_backward_search_with_steps(pattern: str, fm_index: dict):
     pattern = pattern.upper()
     if not pattern:
-        return []
+        return [], []
 
     bwt = fm_index["bwt"]
     c_table = fm_index["c_table"]
@@ -81,23 +107,31 @@ def fm_backward_search(pattern: str, fm_index: dict):
     suffix_array = fm_index["suffix_array"]
 
     if any(ch not in c_table for ch in pattern):
-        return []
+        return [], []
 
     l, r = 0, len(bwt)
-    for ch in reversed(pattern):
+    steps = []
+    for step_id, ch in enumerate(reversed(pattern), start=1):
         l = c_table[ch] + occ[ch][l]
         r = c_table[ch] + occ[ch][r]
+        steps.append({"Step": step_id, "SearchChar": ch, "RangeStart": l, "RangeEndExclusive": r})
         if l >= r:
-            return []
+            return [], steps
 
-    return sorted(suffix_array[l:r])
+    return sorted(suffix_array[l:r]), steps
+
+
+def build_match_alignment(sequence: str, pattern: str, positions):
+    lines = [sequence]
+    for pos in positions:
+        lines.append(" " * pos + pattern)
+    return "\n".join(lines)
 
 
 # -----------------------------
 # Module 1 (Graph-based Pangenome)
 # -----------------------------
 def build_pangenome_graph(sequences, k=3):
-    """Build weighted directed De Bruijn-style graph from DNA sequences."""
     graph = nx.DiGraph()
 
     for seq in sequences:
@@ -118,7 +152,6 @@ def build_pangenome_graph(sequences, k=3):
 
 
 def compute_conservation_profile(sequences):
-    """Compute per-position conservation as major allele frequency (0..1)."""
     if not sequences:
         return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
 
@@ -133,13 +166,81 @@ def compute_conservation_profile(sequences):
     rows = []
     for i in range(min_len):
         column = [s[i] for s in sequences]
-        series = pd.Series(column)
-        counts = series.value_counts()
-        major_base = counts.index[0]
-        conservation = counts.iloc[0] / len(column)
-        rows.append({"Position": i + 1, "Conservation": conservation, "MajorBase": major_base})
+        counts = pd.Series(column).value_counts()
+        rows.append(
+            {
+                "Position": i + 1,
+                "Conservation": counts.iloc[0] / len(column),
+                "MajorBase": counts.index[0],
+            }
+        )
 
     return pd.DataFrame(rows)
+
+
+def build_interactive_graph_figure(graph: nx.DiGraph):
+    pos = nx.spring_layout(graph, seed=42)
+
+    edge_x = []
+    edge_y = []
+    edge_text = []
+    for u, v in graph.edges():
+        x0, y0 = pos[u]
+        x1, y1 = pos[v]
+        edge_x += [x0, x1, None]
+        edge_y += [y0, y1, None]
+        edge_text.append(f"{u} ➜ {v} | weight={graph[u][v]['weight']}")
+
+    edge_trace = go.Scatter(
+        x=edge_x,
+        y=edge_y,
+        line=dict(width=1.2, color="#888"),
+        hoverinfo="none",
+        mode="lines",
+    )
+
+    node_x = []
+    node_y = []
+    node_text = []
+    node_size = []
+    for node in graph.nodes():
+        x, y = pos[node]
+        node_x.append(x)
+        node_y.append(y)
+        degree = graph.in_degree(node) + graph.out_degree(node)
+        node_size.append(12 + degree * 3)
+        node_text.append(f"k-mer: {node}<br>In: {graph.in_degree(node)} Out: {graph.out_degree(node)}")
+
+    node_trace = go.Scatter(
+        x=node_x,
+        y=node_y,
+        mode="markers+text",
+        hoverinfo="text",
+        text=[n for n in graph.nodes()],
+        textposition="top center",
+        marker=dict(
+            showscale=False,
+            color="#2ca02c",
+            size=node_size,
+            line_width=1.5,
+        ),
+        hovertext=node_text,
+    )
+
+    fig = go.Figure(
+        data=[edge_trace, node_trace],
+        layout=go.Layout(
+            title="Interactive Pangenome k-mer Graph (Zoom / Pan / Hover)",
+            titlefont_size=16,
+            showlegend=False,
+            hovermode="closest",
+            margin=dict(b=20, l=20, r=20, t=50),
+            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+            height=520,
+        ),
+    )
+    return fig
 
 
 # -----------------------------
@@ -164,7 +265,6 @@ class SimpleDNA_CNN(nn.Module):
 
 
 def encode_sequence(seq: str) -> torch.Tensor:
-    """Convert DNA string to one-hot tensor shape: (1, 4, L)."""
     mapping = {
         "A": [1, 0, 0, 0],
         "C": [0, 1, 0, 0],
@@ -185,13 +285,11 @@ def get_model(seed=42):
 def predict_functional_impact(sequence: str, seed: int = 42) -> float:
     model = get_model(seed=seed)
     with torch.no_grad():
-        input_tensor = encode_sequence(sequence)
-        output = model(input_tensor)
+        output = model(encode_sequence(sequence))
     return output.item()
 
 
 def compute_saliency(sequence: str, seed: int = 42):
-    """Simple gradient saliency: max channel gradient per position."""
     model = get_model(seed=seed)
     input_tensor = encode_sequence(sequence)
     input_tensor.requires_grad_(True)
@@ -199,17 +297,11 @@ def compute_saliency(sequence: str, seed: int = 42):
     output = model(input_tensor)
     output.backward(torch.ones_like(output))
 
-    grads = input_tensor.grad.detach().abs().squeeze(0)  # shape [4, L]
-    saliency = grads.max(dim=0).values.cpu().numpy()  # [L]
-    return saliency
-
-
-def sanitize_dna_sequence(text: str) -> str:
-    return "".join(text.split()).upper()
+    grads = input_tensor.grad.detach().abs().squeeze(0)
+    return grads.max(dim=0).values.cpu().numpy()
 
 
 def mutation_scan(sequence: str, seed: int = 42):
-    """All single-base substitutions with impact and delta vs baseline."""
     sequence = sanitize_dna_sequence(sequence)
     bases = ["A", "C", "G", "T"]
     baseline = predict_functional_impact(sequence, seed=seed)
@@ -217,8 +309,6 @@ def mutation_scan(sequence: str, seed: int = 42):
     rows = []
     for idx, ref in enumerate(sequence):
         for alt in bases:
-            if alt == ref:
-                continue
             mutant = sequence[:idx] + alt + sequence[idx + 1:]
             score = predict_functional_impact(mutant, seed=seed)
             rows.append(
@@ -226,7 +316,6 @@ def mutation_scan(sequence: str, seed: int = 42):
                     "Position": idx + 1,
                     "Ref": ref,
                     "Alt": alt,
-                    "MutantSequence": mutant,
                     "ImpactScore": score,
                     "DeltaVsBaseline": score - baseline,
                 }
@@ -235,31 +324,24 @@ def mutation_scan(sequence: str, seed: int = 42):
     return baseline, pd.DataFrame(rows)
 
 
-def make_heatmap_matrix(scan_df: pd.DataFrame, sequence: str):
+def make_impact_matrix(scan_df: pd.DataFrame, sequence: str):
     bases = ["A", "C", "G", "T"]
-    length = len(sequence)
-    matrix = np.full((4, length), np.nan, dtype=float)
+    matrix = np.full((len(sequence), 4), np.nan, dtype=float)
 
     for _, row in scan_df.iterrows():
-        b_idx = bases.index(row["Alt"])
         p_idx = int(row["Position"]) - 1
-        matrix[b_idx, p_idx] = row["DeltaVsBaseline"]
+        b_idx = bases.index(row["Alt"])
+        matrix[p_idx, b_idx] = row["ImpactScore"]
 
     return bases, matrix
 
 
 # -----------------------------
-# Streamlit App UI
+# Streamlit UI
 # -----------------------------
-st.set_page_config(
-    page_title="PanGen-AI Suite | Computational Genomics",
-    page_icon="🧬",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+st.set_page_config(page_title="PanGen-AI Suite | Computational Genomics", page_icon="🧬", layout="wide")
 
 st.sidebar.title("PanGen-AI Suite")
-st.sidebar.markdown("### Navigation")
 page = st.sidebar.radio(
     "Select a Module:",
     [
@@ -271,287 +353,243 @@ page = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.info(
-    "Developed by: **Yashwant Nama**\n\n"
-    "Computational Researcher\n\n"
-    "Target: Advanced Genomic Data Structures & Deep Learning"
-)
-
+st.sidebar.info("Developed by: **Yashwant Nama**")
 
 if page == "Home - Overview":
     st.title("PanGen-AI Suite: Integrated Computational Genomics")
     st.markdown(
         """
-Welcome to the **PanGen-AI Suite**. This toolkit bridges raw genomic data,
-evolutionary conservation, and artificial intelligence.
-
-### Available Modules
-1. **Pangenome Explorer:** Build graph-based k-mer pangenome structure + conservation profile.
-2. **DeepNCV:** Score non-coding DNA and explore mutation impact with heatmaps.
-3. **Geno-Compressor:** BWT transform + inverse + FM-index pattern search.
+- Module 1: Graph-based pangenome + conservation + FASTA upload + exports
+- Module 2: DeepNCV prediction + mutation heatmap + batch export + reproducibility
+- Module 3: BWT + FM-index search with step trace and match highlighting
 """
     )
 
 elif page == "Module 1: Pangenome Explorer":
     st.title("Module 1: Pangenome Graph Explorer")
     st.subheader("Graph-Based Sequence Assembly + Conservation Analysis")
-    st.markdown(
-        """
-Modern pangenomics represents genomes as **sequence graphs** instead of linear strings.
-This module builds a weighted directed k-mer graph and computes a per-position conservation profile.
-"""
-    )
 
+    uploaded_fasta = st.file_uploader("Upload FASTA file", type=["fasta", "fa"], key="module1_fasta")
     default_seqs = "ATGCGTAC\nATGCATAC\nATGCGTAC\nATGCCTAC"
     seq_input = st.text_area("Enter DNA Sequences (one per line):", value=default_seqs, height=120)
-    kmer_size = st.slider("Select k-mer size (Resolution):", min_value=2, max_value=7, value=3)
+    kmer_size = st.slider("Select k-mer size", min_value=2, max_value=7, value=3)
 
     if st.button("Generate Pangenome Graph"):
-        sequences = [sanitize_dna_sequence(s) for s in seq_input.split("\n") if s.strip()]
+        typed_sequences = [sanitize_dna_sequence(s) for s in seq_input.split("\n") if s.strip()]
+        fasta_sequences = []
+        if uploaded_fasta is not None:
+            fasta_sequences = parse_fasta_text(uploaded_fasta.read().decode("utf-8", errors="ignore"))
 
-        if sequences:
-            with st.spinner("Constructing graph and conservation profile..."):
-                graph = build_pangenome_graph(sequences, k=kmer_size)
-                num_nodes = graph.number_of_nodes()
-                num_edges = graph.number_of_edges()
-                conservation_df = compute_conservation_profile(sequences)
+        sequences = typed_sequences + fasta_sequences
+
+        if not sequences:
+            st.warning("Please provide at least one sequence (text or FASTA upload).")
+        else:
+            graph = build_pangenome_graph(sequences, k=kmer_size)
+            conservation_df = compute_conservation_profile(sequences)
 
             st.success("Pangenome analysis complete.")
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Input Sequences", len(sequences))
-            col2.metric("Graph Nodes (k-mers)", num_nodes)
-            col3.metric("Graph Edges", num_edges)
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Input Sequences", len(sequences))
+            c2.metric("Graph Nodes", graph.number_of_nodes())
+            c3.metric("Graph Edges", graph.number_of_edges())
 
-            if num_nodes > 0 and num_edges > 0:
-                fig, ax = plt.subplots(figsize=(11, 6))
-                pos = nx.spring_layout(graph, seed=42)
-                weights = [graph[u][v]["weight"] * 1.8 for u, v in graph.edges()]
+            if graph.number_of_nodes() > 0:
+                fig = build_interactive_graph_figure(graph)
+                st.plotly_chart(fig, use_container_width=True)
 
-                nx.draw_networkx_nodes(graph, pos, node_size=720, node_color="#4CAF50", alpha=0.92, ax=ax)
-                nx.draw_networkx_labels(graph, pos, font_size=9, font_color="white", font_weight="bold", ax=ax)
-                nx.draw_networkx_edges(graph, pos, width=weights, edge_color="#555555", arrowsize=20, ax=ax)
-
-                ax.set_title(f"Pangenome Sequence Graph (k={kmer_size})", fontsize=14)
-                ax.axis("off")
-                st.pyplot(fig)
-                plt.close(fig)
-
-                st.info(
-                    "💡 Nodes = k-mers, edges = adjacency. Thicker edges indicate shared/conserved paths. "
-                    "Branches suggest SNPs/variants/alternative sequence paths."
+                edge_rows = [{"Source": u, "Target": v, "Weight": graph[u][v]["weight"]} for u, v in graph.edges()]
+                edge_df = pd.DataFrame(edge_rows)
+                st.download_button(
+                    "Download graph data (CSV)",
+                    data=edge_df.to_csv(index=False).encode("utf-8"),
+                    file_name="pangenome_graph_edges.csv",
+                    mime="text/csv",
                 )
             else:
-                st.warning("No graph could be built. Ensure each sequence has length at least k+1.")
+                st.warning("Graph is empty. Ensure sequence length >= k+1.")
 
             if not conservation_df.empty:
-                cfig, cax = plt.subplots(figsize=(11, 3.8))
-                cax.plot(
-                    conservation_df["Position"],
-                    conservation_df["Conservation"],
-                    marker="o",
-                    linewidth=1.8,
-                    color="#1f77b4",
-                )
+                cfig, cax = plt.subplots(figsize=(11, 3.5))
+                cax.plot(conservation_df["Position"], conservation_df["Conservation"], marker="o")
                 cax.set_ylim(0, 1.05)
                 cax.set_xlabel("Position")
                 cax.set_ylabel("Conservation")
-                cax.set_title("Per-position Conservation Profile (Major Allele Frequency)")
+                cax.set_title("Per-position Conservation")
                 cax.grid(alpha=0.3)
                 st.pyplot(cfig)
                 plt.close(cfig)
 
-                with st.expander("Show conservation table"):
-                    st.dataframe(conservation_df, use_container_width=True)
-            else:
-                st.warning("Could not compute conservation profile.")
-        else:
-            st.warning("Please enter at least one DNA sequence.")
+                st.dataframe(conservation_df, use_container_width=True)
+                st.download_button(
+                    "Download conservation table (CSV)",
+                    data=conservation_df.to_csv(index=False).encode("utf-8"),
+                    file_name="conservation_profile.csv",
+                    mime="text/csv",
+                )
 
 elif page == "Module 2: DeepNCV (AI Variant Caller)":
     st.title("Module 2: DeepNCV")
-    st.subheader("Prediction + Variant Effect Explorer + Explainability")
-
-    tabs = st.tabs([
-        "Single Prediction",
-        "Variant Effect Explorer",
-        "Batch/Saturation CSV",
-    ])
+    tabs = st.tabs(["Single Prediction", "Mutation Impact Heatmap", "Batch Export"])
 
     with tabs[0]:
-        dna_sequence = st.text_area(
-            "Enter DNA Sequence (A, T, C, G):",
-            height=130,
-            value="ATGCGTACGTAGCTAGCTAGCTAGCTAGCTAGCTAG",
-            key="single_seq",
-        )
-        seed = st.number_input("Reproducibility Seed", min_value=0, max_value=100000, value=42, step=1)
-        show_explainability = st.checkbox("Show explainability (saliency per nucleotide)", value=True)
-
-        if st.button("Predict Functional Impact", key="predict_single"):
-            clean_seq = sanitize_dna_sequence(dna_sequence)
-            if len(clean_seq) < 10:
-                st.error("Please enter a valid DNA sequence (minimum 10 base pairs).")
+        dna_sequence = st.text_area("Enter DNA Sequence", value="ATGCGTACGTAGCTAGCTAG", height=120, key="single_seq")
+        seed = st.number_input("Reproducibility Seed", min_value=0, max_value=100000, value=42)
+        if st.button("Predict Functional Impact"):
+            seq = sanitize_dna_sequence(dna_sequence)
+            if len(seq) < 10:
+                st.error("Sequence must be at least 10 bp.")
             else:
-                with st.spinner("Running model inference..."):
-                    impact_score = predict_functional_impact(clean_seq, seed=int(seed))
+                score = predict_functional_impact(seq, seed=int(seed))
+                st.metric("Impact Score", f"{score:.4f}")
 
-                confidence_pct = impact_score * 100
-                st.success("Inference complete.")
-                st.metric("Functional Impact Probability", f"{confidence_pct:.2f}%")
+                sal = compute_saliency(seq, seed=int(seed))
+                sfig, sax = plt.subplots(figsize=(11, 3.5))
+                sax.plot(np.arange(1, len(seq) + 1), sal)
+                sax.set_title("Saliency (Explainability)")
+                sax.set_xlabel("Position")
+                sax.set_ylabel("Importance")
+                sax.grid(alpha=0.3)
+                st.pyplot(sfig)
+                plt.close(sfig)
 
-                if confidence_pct > 50:
-                    st.info("🧠 Model Prediction: **Active Functional Region**")
-                else:
-                    st.warning("🧠 Model Prediction: **Inactive/Neutral Region**")
-
-                st.write(f"Sequence Length: {len(clean_seq)} bp")
-                st.write(f"Input Tensor Shape: `[1, 4, {len(clean_seq)}]`")
-
-                if show_explainability:
-                    saliency = compute_saliency(clean_seq, seed=int(seed))
-                    sfig, sax = plt.subplots(figsize=(11, 3.8))
-                    sax.plot(np.arange(1, len(clean_seq) + 1), saliency, color="#d62728", linewidth=1.8)
-                    sax.set_xlabel("Position")
-                    sax.set_ylabel("Saliency")
-                    sax.set_title("Nucleotide Importance (Gradient Saliency)")
-                    sax.grid(alpha=0.3)
-                    st.pyplot(sfig)
-                    plt.close(sfig)
-
-                report = {
+                payload = {
                     "timestamp_utc": datetime.utcnow().isoformat() + "Z",
+                    "sequence": seq,
                     "seed": int(seed),
-                    "sequence_length": len(clean_seq),
-                    "sequence": clean_seq,
-                    "impact_score": impact_score,
-                    "impact_percent": confidence_pct,
-                    "model": "SimpleDNA_CNN (demo, untrained)",
+                    "impact_score": score,
                 }
                 st.download_button(
-                    "Download reproducibility JSON",
-                    data=json.dumps(report, indent=2),
-                    file_name="deepncv_reproducible_run.json",
+                    "Download prediction JSON",
+                    data=json.dumps(payload, indent=2),
+                    file_name="prediction_result.json",
                     mime="application/json",
                 )
 
     with tabs[1]:
-        seq_for_scan = st.text_area(
-            "Reference DNA Sequence for mutation scan:",
-            height=130,
-            value="ATGCGTACGTAGCTAGCTAG",
-            key="scan_seq",
-        )
-        scan_seed = st.number_input("Seed", min_value=0, max_value=100000, value=42, step=1, key="scan_seed")
+        seq_for_scan = st.text_area("Reference DNA Sequence", value="ATGCGTACGTAGCTAGCTAG", height=120, key="scan_seq")
+        scan_seed = st.number_input("Scan Seed", min_value=0, max_value=100000, value=42)
 
-        if st.button("Run Single-Mutation Scan", key="run_scan"):
-            ref_seq = sanitize_dna_sequence(seq_for_scan)
-            if len(ref_seq) < 10:
-                st.error("Please provide at least 10 bp for mutation scanning.")
+        if st.button("Run Mutation Heatmap"):
+            ref = sanitize_dna_sequence(seq_for_scan)
+            if len(ref) < 10:
+                st.error("Sequence must be at least 10 bp.")
             else:
-                with st.spinner("Generating all single-base substitutions..."):
-                    baseline, scan_df = mutation_scan(ref_seq, seed=int(scan_seed))
+                baseline, scan_df = mutation_scan(ref, seed=int(scan_seed))
+                st.metric("Baseline Score", f"{baseline:.4f}")
 
-                st.success("Mutation scan complete.")
-                st.metric("Baseline Impact Score", f"{baseline:.4f}")
-                st.dataframe(scan_df[["Position", "Ref", "Alt", "ImpactScore", "DeltaVsBaseline"]], use_container_width=True)
+                pivot_df = scan_df.pivot(index="Position", columns="Alt", values="ImpactScore").reset_index()
+                st.dataframe(pivot_df, use_container_width=True)
 
-                bases, heatmap_matrix = make_heatmap_matrix(scan_df, ref_seq)
-                hfig, hax = plt.subplots(figsize=(12, 3.8))
-                im = hax.imshow(heatmap_matrix, aspect="auto", cmap="coolwarm")
+                bases, impact_matrix = make_impact_matrix(scan_df, ref)
+                hfig, hax = plt.subplots(figsize=(12, 4))
+                im = hax.imshow(impact_matrix.T, aspect="auto", cmap="viridis")
                 hax.set_yticks(range(len(bases)))
                 hax.set_yticklabels(bases)
-                hax.set_xticks(range(len(ref_seq)))
-                hax.set_xticklabels(range(1, len(ref_seq) + 1), fontsize=8)
+                hax.set_xticks(range(len(ref)))
+                hax.set_xticklabels(range(1, len(ref) + 1), fontsize=8)
                 hax.set_xlabel("Position")
-                hax.set_ylabel("Alternative Base")
-                hax.set_title("Variant Effect Heatmap (Δ vs baseline)")
-                plt.colorbar(im, ax=hax, label="Delta Impact")
+                hax.set_ylabel("Alt Base")
+                hax.set_title("Mutation Impact Heatmap (ImpactScore)")
+                plt.colorbar(im, ax=hax, label="ImpactScore")
                 st.pyplot(hfig)
                 plt.close(hfig)
 
+                st.download_button(
+                    "Download mutation results (CSV)",
+                    data=scan_df.to_csv(index=False).encode("utf-8"),
+                    file_name="mutation_scan_results.csv",
+                    mime="text/csv",
+                )
+
     with tabs[2]:
         batch_sequences = st.text_area(
-            "Batch DNA sequences (one per line):",
-            height=120,
-            value="ATGCGTACGTAG\nATGCATACGTAG\nATGCGTACCTAG",
-            key="batch_seq",
+            "Batch sequences (one per line)", value="ATGCGTACGTAG\nATGCATACGTAG\nATGCGTACCTAG", height=120
         )
-        batch_seed = st.number_input("Batch Seed", min_value=0, max_value=100000, value=42, step=1, key="batch_seed")
+        batch_seed = st.number_input("Batch Seed", min_value=0, max_value=100000, value=42)
 
-        if st.button("Run Batch Predictions", key="batch_predict"):
-            seqs = [sanitize_dna_sequence(s) for s in batch_sequences.split("\n") if s.strip()]
-            valid = [s for s in seqs if len(s) >= 10]
+        if st.button("Run Batch Predictions"):
+            seqs = [sanitize_dna_sequence(x) for x in batch_sequences.split("\n") if x.strip()]
+            seqs = [s for s in seqs if len(s) >= 10]
 
-            if not valid:
-                st.error("No valid sequences found (need length >= 10).")
+            if not seqs:
+                st.error("No valid sequences (>=10 bp) provided.")
             else:
                 rows = []
-                for i, seq in enumerate(valid, start=1):
+                for i, seq in enumerate(seqs, start=1):
                     score = predict_functional_impact(seq, seed=int(batch_seed))
-                    rows.append(
-                        {
-                            "SequenceID": f"Seq_{i}",
-                            "Length": len(seq),
-                            "ImpactScore": score,
-                            "ImpactPercent": score * 100,
-                            "Sequence": seq,
-                        }
-                    )
+                    rows.append({"SequenceID": f"Seq_{i}", "Sequence": seq, "Length": len(seq), "ImpactScore": score})
 
-                batch_df = pd.DataFrame(rows)
-                st.dataframe(batch_df, use_container_width=True)
-
-                csv_data = batch_df.to_csv(index=False).encode("utf-8")
+                result_df = pd.DataFrame(rows)
+                st.dataframe(result_df, use_container_width=True)
                 st.download_button(
-                    "Download Batch Predictions CSV",
-                    data=csv_data,
-                    file_name="deepncv_batch_predictions.csv",
+                    "Download batch predictions (CSV)",
+                    data=result_df.to_csv(index=False).encode("utf-8"),
+                    file_name="batch_predictions.csv",
                     mime="text/csv",
                 )
 
 elif page == "Module 3: Geno-Compressor (BWT)":
-    st.title("Module 3: Geno-Compressor + FM-index Search")
-    st.subheader("BWT Compression + Inverse + Fast Pattern Search")
+    st.title("Module 3: Geno-Compressor + FM-index")
+    sequence_input = st.text_input("Enter DNA sequence", value="GATTACAGATTACA")
+    pattern = st.text_input("Pattern for FM-index search", value="TACA")
 
-    sequence_input = st.text_input("Enter DNA sequence:", value="GATTACAGATTACA")
-    col_a, col_b = st.columns(2)
+    c1, c2 = st.columns(2)
 
-    with col_a:
-        if st.button("Compress Sequence (BWT)"):
-            clean_seq = sanitize_dna_sequence(sequence_input)
-            if clean_seq:
-                bwt_result, sorted_rotations = generate_bwt(clean_seq)
-                reconstructed = inverse_bwt(bwt_result)
-
-                st.success("Transformation complete.")
-                st.metric("Original Sequence", clean_seq)
-                st.metric("BWT Output", bwt_result)
-                st.metric("Reconstructed Sequence", reconstructed)
-
-                with st.expander("Show sorted rotation matrix"):
-                    st.code("\n".join(sorted_rotations))
+    with c1:
+        if st.button("Run BWT Compression"):
+            seq = sanitize_dna_sequence(sequence_input)
+            if not seq:
+                st.warning("Enter a sequence first.")
             else:
-                st.warning("Please enter a DNA sequence.")
+                bwt, rotations = generate_bwt(seq)
+                restored = inverse_bwt(bwt)
+                st.metric("BWT", bwt)
+                st.metric("Reconstructed", restored)
+                with st.expander("Show rotations"):
+                    st.code("\n".join(rotations))
 
-    with col_b:
-        pattern = st.text_input("Pattern for FM-index search:", value="TACA")
+    with c2:
         if st.button("Run FM-index Search"):
-            clean_seq = sanitize_dna_sequence(sequence_input)
-            clean_pattern = sanitize_dna_sequence(pattern)
-
-            if not clean_seq or not clean_pattern:
-                st.warning("Please provide both sequence and pattern.")
+            seq = sanitize_dna_sequence(sequence_input)
+            pat = sanitize_dna_sequence(pattern)
+            if not seq or not pat:
+                st.warning("Enter both sequence and pattern.")
             else:
-                fm = build_fm_index(clean_seq)
-                positions = [p for p in fm_backward_search(clean_pattern, fm) if p < len(clean_seq)]
+                fm = build_fm_index(seq)
+                positions_raw, steps = fm_backward_search_with_steps(pat, fm)
+                positions = [p for p in positions_raw if p < len(seq)]
 
                 st.metric("Matches Found", len(positions))
-                st.write("Match Start Positions (0-based):", positions)
+                st.info("FM-index search complexity: O(m)")
+                st.write("Positions (0-based):", positions)
 
-                with st.expander("Show FM-index internals"):
-                    st.write("BWT:", fm["bwt"])
-                    st.write("Suffix Array:", fm["suffix_array"])
-                    st.write("C-table:", fm["c_table"])
+                steps_df = pd.DataFrame(steps)
+                st.subheader("Backward Search Steps")
+                st.dataframe(steps_df, use_container_width=True)
 
-                    occ_df = pd.DataFrame({c: fm["occ"][c] for c in fm["alphabet"]})
-                    st.dataframe(occ_df, use_container_width=True)
+                st.subheader("Highlight Match Positions")
+                st.code(build_match_alignment(seq, pat, positions))
+
+                st.download_button(
+                    "Download FM-index results (CSV)",
+                    data=pd.DataFrame({"Position": positions}).to_csv(index=False).encode("utf-8"),
+                    file_name="fm_index_positions.csv",
+                    mime="text/csv",
+                )
+
+                details = {
+                    "sequence": seq,
+                    "pattern": pat,
+                    "positions": positions,
+                    "steps": steps,
+                    "bwt": fm["bwt"],
+                    "suffix_array": fm["suffix_array"],
+                    "c_table": fm["c_table"],
+                }
+                st.download_button(
+                    "Download FM-index details (JSON)",
+                    data=json.dumps(details, indent=2),
+                    file_name="fm_index_details.json",
+                    mime="application/json",
+                )
