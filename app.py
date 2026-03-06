@@ -353,6 +353,17 @@ page = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 st.sidebar.info("Developed by: **Yashwant Nama**")
+st.sidebar.markdown("""
+### PanGen-AI Suite
+**Version:** 1.0
+
+**Developer:** Yashwant Nama
+
+Integrated platform for:
+- Pangenome Graph Analysis
+- AI Variant Prediction
+- Genome Indexing Algorithms
+""")
 
 if page == "Home - Overview":
     st.title("PanGen-AI Suite: Integrated Computational Genomics")
@@ -383,10 +394,25 @@ The pangenome graph is constructed using a k-mer based adjacency graph.
 Each DNA sequence is decomposed into overlapping k-mers of size k.
 Nodes represent unique k-mers and directed edges represent adjacency relationships between consecutive k-mers across sequences.
 """)
+    with st.expander("Use Case / Applications"):
+        st.markdown("""
+**Applications**
+- Comparative genomics
+- Identification of conserved genomic regions
+- Visualization of sequence variation across genomes
+""")
 
     uploaded_fasta = st.file_uploader("Upload FASTA file", type=["fasta", "fa"], key="module1_fasta")
-    default_seqs = "ATGCGTAC\nATGCATAC\nATGCGTAC\nATGCCTAC"
-    seq_input = st.text_area("Enter DNA Sequences (one per line):", value=default_seqs, height=120)
+    default_seqs = "ATGCGTAC\nATGCATAC\nATGCGTGC\nATGCGTAC"
+
+
+    if "module1_seq_input" not in st.session_state:
+        st.session_state["module1_seq_input"] = default_seqs
+
+    if st.button("Load Example Sequences", key="module1_example_btn"):
+        st.session_state["module1_seq_input"] = default_seqs
+
+    seq_input = st.text_area("Enter DNA Sequences (one per line):", key="module1_seq_input", height=120)
     kmer_size = st.slider("Select k-mer size", min_value=2, max_value=7, value=3)
 
     if st.button("Generate Pangenome Graph"):
@@ -457,11 +483,25 @@ Saliency visualization highlights important nucleotide positions contributing to
 Variant impact prediction is performed using a convolutional neural network (CNN) trained on encoded DNA sequences.
 Saliency maps are computed using gradient-based attribution to identify nucleotide positions that contribute most to the prediction.
 """)
+    with st.expander("Use Case / Applications"):
+        st.markdown("""
+**Applications**
+- Variant effect prediction
+- Mutation impact analysis
+- Functional genomics studies
+""")
+
     tabs = st.tabs(["Single Prediction", "Mutation Impact Heatmap", "Batch Export"])
 
     with tabs[0]:
-        dna_sequence = st.text_area("Enter DNA Sequence", value="ATGCGTACGTAGCTAGCTAG", height=120, key="single_seq")
-        seed = st.number_input("Reproducibility Seed", min_value=0, max_value=100000, value=42)
+        if "module2_single_seq" not in st.session_state:
+            st.session_state["module2_single_seq"] = "ATGCGTACGTAGCTAGCTAG"
+
+        if st.button("Load Example Variant Sequence", key="module2_example_btn"):
+            st.session_state["module2_single_seq"] = "ATGCGTACGTAGCTAGCTAG"
+
+        dna_sequence = st.text_area("Enter DNA Sequence", height=120, key="module2_single_seq")
+        seed = st.number_input("Reproducibility Seed", min_value=0, max_value=100000, value=42, key="module2_single_seed")
         if st.button("Predict Functional Impact"):
             seq = sanitize_dna_sequence(dna_sequence)
             if len(seq) < 10:
@@ -496,7 +536,7 @@ Saliency maps are computed using gradient-based attribution to identify nucleoti
 
     with tabs[1]:
         seq_for_scan = st.text_area("Reference DNA Sequence", value="ATGCGTACGTAGCTAGCTAG", height=120, key="scan_seq")
-        scan_seed = st.number_input("Scan Seed", min_value=0, max_value=100000, value=42)
+        scan_seed = st.number_input("Scan Seed", min_value=0, max_value=100000, value=42, key="module2_scan_seed")
 
         if st.button("Run Mutation Heatmap"):
             ref = sanitize_dna_sequence(seq_for_scan)
@@ -534,7 +574,7 @@ Saliency maps are computed using gradient-based attribution to identify nucleoti
         batch_sequences = st.text_area(
             "Batch sequences (one per line)", value="ATGCGTACGTAG\nATGCATACGTAG\nATGCGTACCTAG", height=120
         )
-        batch_seed = st.number_input("Batch Seed", min_value=0, max_value=100000, value=42)
+        batch_seed = st.number_input("Batch Seed", min_value=0, max_value=100000, value=42, key="module2_batch_seed")
 
         if st.button("Run Batch Predictions"):
             seqs = [sanitize_dna_sequence(x) for x in batch_sequences.split("\n") if x.strip()]
@@ -569,8 +609,25 @@ It performs sequence compression, reconstruction, and fast pattern matching with
 Genome compression is implemented using the Burrows-Wheeler Transform (BWT).
 Efficient pattern search is performed using the FM-index with backward search to locate occurrences of query patterns in compressed sequences.
 """)
-    sequence_input = st.text_input("Enter DNA sequence", value="GATTACAGATTACA")
-    pattern = st.text_input("Pattern for FM-index search", value="TACA")
+    with st.expander("Use Case / Applications"):
+        st.markdown("""
+**Applications**
+- Genome indexing
+- Fast sequence search
+- Bioinformatics algorithm demonstration
+""")
+
+    if "module3_seq" not in st.session_state:
+        st.session_state["module3_seq"] = "GATTACAGATTACA"
+    if "module3_pattern" not in st.session_state:
+        st.session_state["module3_pattern"] = "TACA"
+
+    if st.button("Load Example Search", key="module3_example_btn"):
+        st.session_state["module3_seq"] = "GATTACAGATTACA"
+        st.session_state["module3_pattern"] = "TACA"
+
+    sequence_input = st.text_input("Enter DNA sequence", key="module3_seq")
+    pattern = st.text_input("Pattern for FM-index search", key="module3_pattern")
 
     c1, c2 = st.columns(2)
 
