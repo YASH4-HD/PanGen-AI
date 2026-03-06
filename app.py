@@ -1,4 +1,7 @@
+import io
 import json
+import time
+import zipfile
 from datetime import datetime
 
 import matplotlib.pyplot as plt
@@ -39,6 +42,32 @@ def parse_fasta_text(text: str):
         sequences.append(sanitize_dna_sequence("".join(current)))
 
     return [s for s in sequences if s]
+
+
+def fig_to_png_bytes(fig):
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format="png", dpi=300, bbox_inches="tight")
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def add_export_artifact(filename: str, data: bytes):
+    if "export_artifacts" not in st.session_state:
+        st.session_state["export_artifacts"] = {}
+    st.session_state["export_artifacts"][filename] = data
+
+
+def build_results_zip_bytes():
+    artifacts = st.session_state.get("export_artifacts", {})
+    if not artifacts:
+        return None
+
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, data in artifacts.items():
+            zf.writestr(name, data)
+    zip_buffer.seek(0)
+    return zip_buffer.getvalue()
 
 
 # -----------------------------
@@ -372,6 +401,21 @@ Nama Y. (2026) PanGen-AI Suite: An Integrated Platform for Pangenome Graph Analy
 AI Variant Prediction, and Genome Indexing.
 """)
 
+zip_bytes = build_results_zip_bytes()
+if zip_bytes:
+    st.sidebar.download_button(
+        "Download All Results (ZIP)",
+        data=zip_bytes,
+        file_name="pangen_ai_results.zip",
+        mime="application/zip",
+    )
+else:
+    st.sidebar.caption("Run analyses to enable Download All Results (ZIP).")
+
+if st.sidebar.button("Reset All Modules", key="reset_all_modules"):
+    st.session_state.clear()
+    st.rerun()
+
 
 if page == "Home - Overview":
     st.title("PanGen-AI Suite: Integrated Computational Genomics")
@@ -385,6 +429,21 @@ if page == "Home - Overview":
 - Module 2: DeepNCV prediction + mutation heatmap + batch export + reproducibility
 - Module 3: BWT + FM-index search with step trace and match highlighting
 """
+    )
+    st.code(
+        """PanGen-AI Suite Architecture
+
+DNA Input
+  ↓
+Pangenome Graph Module
+  ↓
+DeepNCV Variant Predictor
+  ↓
+Genome Compression + FM-index
+  ↓
+Visualization + Export
+""",
+        language="text",
     )
 
 elif page == "Module 1: Pangenome Explorer":
@@ -428,7 +487,12 @@ Nodes represent unique k-mers and directed edges represent adjacency relationshi
     seq_input = st.text_area("Enter DNA Sequences (one per line):", key="module1_seq_input", height=120)
     kmer_size = st.slider("Select k-mer size", min_value=2, max_value=7, value=3)
 
-    st.info("Suggested screenshot workflow: 1) Load example sequences → 2) Generate graph → 3) Capture graph + conservation plot.")
+    st.info("""Example Workflow
+1. Load example sequences
+2. Select k-mer size
+3. Click Generate Pangenome Graph
+4. Explore graph and conservation plot
+""")
     st.code(example_seqs, language="text")
     st.download_button(
         "Download Example Dataset",
@@ -444,6 +508,7 @@ Nodes represent unique k-mers and directed edges represent adjacency relationshi
         st.rerun()
 
     if st.button("Generate Pangenome Graph"):
+        start_time = time.time()
         typed_sequences = [sanitize_dna_sequence(s) for s in seq_input.split("\n") if s.strip()]
         fasta_sequences = []
         if uploaded_fasta is not None:
@@ -477,12 +542,14 @@ Nodes represent unique k-mers and directed edges represent adjacency relationshi
 
                 edge_rows = [{"Source": u, "Target": v, "Weight": graph[u][v]["weight"]} for u, v in graph.edges()]
                 edge_df = pd.DataFrame(edge_rows)
+                edge_csv = edge_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     "Download graph data (CSV)",
-                    data=edge_df.to_csv(index=False).encode("utf-8"),
+                    data=edge_csv,
                     file_name="pangenome_graph_edges.csv",
                     mime="text/csv",
                 )
+                add_export_artifact("pangenome_graph.csv", edge_csv)
             else:
                 st.warning("Graph is empty. Ensure sequence length >= k+1.")
 
@@ -498,12 +565,25 @@ Nodes represent unique k-mers and directed edges represent adjacency relationshi
                 plt.close(cfig)
 
                 st.dataframe(conservation_df, use_container_width=True)
+                conservation_csv = conservation_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     "Download conservation table (CSV)",
-                    data=conservation_df.to_csv(index=False).encode("utf-8"),
+                    data=conservation_csv,
                     file_name="conservation_profile.csv",
                     mime="text/csv",
                 )
+                add_export_artifact("conservation_table.csv", conservation_csv)
+
+                conservation_png = fig_to_png_bytes(cfig)
+                st.download_button(
+                    "Download Conservation Plot (PNG)",
+                    data=conservation_png,
+                    file_name="conservation_plot.png",
+                    mime="image/png",
+                )
+                add_export_artifact("conservation_plot.png", conservation_png)
+
+            st.caption(f"Analysis completed in {time.time() - start_time:.2f} seconds")
 
 elif page == "Module 2: DeepNCV (AI Variant Caller)":
     st.title("Module 2: DeepNCV (AI Variant Caller)")
@@ -531,6 +611,13 @@ Saliency maps are computed using gradient-based attribution to identify nucleoti
             if key in st.session_state:
                 del st.session_state[key]
         st.rerun()
+
+    st.info("""Example Workflow
+1. Load example variant sequence
+2. Run single prediction or mutation heatmap
+3. Inspect saliency / heatmap
+4. Export CSV/JSON outputs
+""")
 
     tabs = st.tabs(["Single Prediction", "Mutation Impact Heatmap", "Batch Export"])
 
@@ -585,6 +672,7 @@ Saliency maps are computed using gradient-based attribution to identify nucleoti
         scan_seed = st.number_input("Scan Seed", min_value=0, max_value=100000, value=42, key="module2_scan_seed")
 
         if st.button("Run Mutation Heatmap"):
+            start_time = time.time()
             ref = sanitize_dna_sequence(seq_for_scan)
             if len(ref) < 10:
                 st.error("Sequence must be at least 10 bp.")
@@ -609,12 +697,25 @@ Saliency maps are computed using gradient-based attribution to identify nucleoti
                 st.pyplot(hfig)
                 plt.close(hfig)
 
+                mutation_csv = scan_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     "Download mutation results (CSV)",
-                    data=scan_df.to_csv(index=False).encode("utf-8"),
+                    data=mutation_csv,
                     file_name="mutation_scan_results.csv",
                     mime="text/csv",
                 )
+                add_export_artifact("mutation_heatmap.csv", mutation_csv)
+
+                heatmap_png = fig_to_png_bytes(hfig)
+                st.download_button(
+                    "Download Heatmap (PNG)",
+                    data=heatmap_png,
+                    file_name="mutation_heatmap.png",
+                    mime="image/png",
+                )
+                add_export_artifact("mutation_heatmap.png", heatmap_png)
+
+                st.caption(f"Analysis completed in {time.time() - start_time:.2f} seconds")
 
     with tabs[2]:
         batch_sequences = st.text_area(
@@ -636,12 +737,14 @@ Saliency maps are computed using gradient-based attribution to identify nucleoti
 
                 result_df = pd.DataFrame(rows)
                 st.dataframe(result_df, use_container_width=True)
+                batch_csv = result_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     "Download batch predictions (CSV)",
-                    data=result_df.to_csv(index=False).encode("utf-8"),
+                    data=batch_csv,
                     file_name="batch_predictions.csv",
                     mime="text/csv",
                 )
+                add_export_artifact("batch_predictions.csv", batch_csv)
 
 elif page == "Module 3: Geno-Compressor (BWT)":
     st.title("Module 3: Geno-Compressor + FM-Index")
@@ -689,6 +792,13 @@ Efficient pattern search is performed using the FM-index with backward search to
                 del st.session_state[key]
         st.rerun()
 
+    st.info("""Example Workflow
+1. Load example search
+2. Run BWT compression or FM-index search
+3. Inspect backward-search steps and matched positions
+4. Export CSV/JSON outputs
+""")
+
     c1, c2 = st.columns(2)
 
     with c1:
@@ -706,6 +816,7 @@ Efficient pattern search is performed using the FM-index with backward search to
 
     with c2:
         if st.button("Run FM-index Search"):
+            start_time = time.time()
             seq = sanitize_dna_sequence(sequence_input)
             pat = sanitize_dna_sequence(pattern)
             if not seq or not pat:
@@ -726,12 +837,14 @@ Efficient pattern search is performed using the FM-index with backward search to
                 st.subheader("Highlight Match Positions")
                 st.code(build_match_alignment(seq, pat, positions))
 
+                fm_csv = pd.DataFrame({"Position": positions}).to_csv(index=False).encode("utf-8")
                 st.download_button(
                     "Download FM-index results (CSV)",
-                    data=pd.DataFrame({"Position": positions}).to_csv(index=False).encode("utf-8"),
+                    data=fm_csv,
                     file_name="fm_index_positions.csv",
                     mime="text/csv",
                 )
+                add_export_artifact("fmindex_results.csv", fm_csv)
 
                 details = {
                     "sequence": seq,
@@ -742,9 +855,12 @@ Efficient pattern search is performed using the FM-index with backward search to
                     "suffix_array": fm["suffix_array"],
                     "c_table": fm["c_table"],
                 }
+                details_json = json.dumps(details, indent=2)
                 st.download_button(
                     "Download FM-index details (JSON)",
-                    data=json.dumps(details, indent=2),
+                    data=details_json,
                     file_name="fm_index_details.json",
                     mime="application/json",
                 )
+                add_export_artifact("fmindex_results.json", details_json.encode("utf-8"))
+                st.caption(f"Analysis completed in {time.time() - start_time:.2f} seconds")
