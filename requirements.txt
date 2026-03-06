@@ -7,4 +7,5 @@ torchvision
 torchaudio
 plotly
 matplotlib
+networkx
 scikit-learn
