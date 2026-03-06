@@ -238,3 +238,28 @@ elif page == "Module 2: DeepNCV (AI Variant Caller)":
             # Display Results
             st.metric(label="Functional Impact Probability", value=f"{confidence_pct:.2f}%")
            
+# --- PAGE 4: MODULE 3 ---
+elif page == "Module 3: Geno-Compressor (BWT)":
+    st.title("Module 3: Geno-Compressor")
+    st.subheader("Pangenomic Data Structures & Compression")
+    st.markdown("Demonstrating the Burrows-Wheeler Transform (BWT) for memory-efficient genomic data storage. BWT groups runs of identical characters, making it highly compressible via Run-Length Encoding (RLE) and forms the basis of the FM-index used in modern aligners.")
+    
+    sequence_input = st.text_input("Enter a short DNA sequence to compress:", value="GATTACA")
+    
+    if st.button("Compress Sequence"):
+        if sequence_input:
+            bwt_result, sorted_rotations = generate_bwt(sequence_input)
+            st.success("Transformation Complete!")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric(label="Original Sequence", value=sequence_input)
+                st.metric(label="BWT Output (Last Column)", value=bwt_result)
+            with col2:
+                reconstructed = inverse_bwt(bwt_result)
+                st.metric(label="Reconstructed Sequence", value=reconstructed)
+            
+            with st.expander("Show Lexicographical Matrix (How it works)"):
+                st.code('\n'.join(sorted_rotations))
+        else:
+            st.warning("Please enter a DNA sequence.")
