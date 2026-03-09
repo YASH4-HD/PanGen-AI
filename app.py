@@ -364,6 +364,48 @@ def make_impact_matrix(scan_df: pd.DataFrame, sequence: str):
     return bases, matrix
 
 
+def simple_offtarget_score(guide: str, reference: str, max_mismatches: int = 2) -> int:
+    """Count approximate off-target-like occurrences of guide in reference."""
+    count = 0
+    L = len(guide)
+    for i in range(max(0, len(reference) - L + 1)):
+        window = reference[i:i + L]
+        mismatches = sum(1 for a, b in zip(guide, window) if a != b)
+        if mismatches <= max_mismatches:
+            count += 1
+    return count
+
+
+def find_crispr_guides(sequence: str):
+    """Find SpCas9-style candidate guides with NGG PAM and simple scoring."""
+    seq = sanitize_dna_sequence(sequence)
+    rows = []
+    for i in range(max(0, len(seq) - 23 + 1)):
+        window = seq[i:i + 23]
+        pam = window[20:23]
+        if len(pam) == 3 and pam[1:] == "GG":
+            guide = window[:20]
+            gc_pct = 100.0 * (guide.count("G") + guide.count("C")) / 20
+            offtarget_hits = simple_offtarget_score(guide, seq)
+            if 40 <= gc_pct <= 70 and offtarget_hits <= 2:
+                label = "High"
+            elif 35 <= gc_pct <= 75 and offtarget_hits <= 5:
+                label = "Medium"
+            else:
+                label = "Low"
+            rows.append(
+                {
+                    "Position": i,
+                    "Guide RNA": guide,
+                    "PAM": pam,
+                    "GC%": round(gc_pct, 1),
+                    "OffTargetHits(<=2mm)": offtarget_hits,
+                    "Score": label,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 # -----------------------------
 # Streamlit UI
 # -----------------------------
@@ -377,6 +419,7 @@ page = st.sidebar.radio(
         "Module 1: Pangenome Explorer",
         "Module 2: DeepNCV (AI Variant Caller)",
         "Module 3: Geno-Compressor (BWT)",
+        "Module 4: CRISPR Guide Designer",
     ],
 )
 
@@ -697,6 +740,37 @@ Saliency maps are computed using gradient-based attribution to identify nucleoti
                 st.pyplot(hfig)
                 plt.close(hfig)
 
+                # Genome track-style visualization (position-wise max impact)
+                pos_scores = (
+                    scan_df.groupby("Position", as_index=False)["ImpactScore"]
+                    .max()
+                    .sort_values("Position")
+                )
+                track_fig = go.Figure(
+                    data=go.Heatmap(
+                        z=[pos_scores["ImpactScore"].tolist()],
+                        x=pos_scores["Position"].tolist(),
+                        y=["AI Impact"],
+                        colorscale="Reds",
+                        colorbar=dict(title="Impact"),
+                    )
+                )
+                track_fig.update_layout(
+                    title="Genome Track Visualization (Mutation Impact)",
+                    height=220,
+                    xaxis_title="Genome Position",
+                    yaxis_title="",
+                )
+                st.plotly_chart(track_fig, use_container_width=True)
+
+                top_hit = scan_df.sort_values("ImpactScore", ascending=False).iloc[0]
+                marker_pos = int(top_hit["Position"])
+                st.code(
+                    f"Sequence\n{ref}\n"
+                    f"{' ' * max(0, marker_pos-1)}↑ mutation hotspot (Pos {marker_pos}, Alt {top_hit['Alt']})",
+                    language="text",
+                )
+
                 mutation_csv = scan_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
                     "Download mutation results (CSV)",
@@ -863,4 +937,51 @@ Efficient pattern search is performed using the FM-index with backward search to
                     mime="application/json",
                 )
                 add_export_artifact("fmindex_results.json", details_json.encode("utf-8"))
+                st.caption(f"Analysis completed in {time.time() - start_time:.2f} seconds")
+
+
+elif page == "Module 4: CRISPR Guide Designer":
+    st.title("Module 4: CRISPR Guide Designer")
+    st.markdown("""
+This module designs candidate CRISPR guide RNAs using a PAM-aware scan (SpCas9: NGG).
+It reports guide sequence, PAM, GC%, and a simple off-target similarity indicator.
+""")
+    with st.expander("Method / Algorithm"):
+        st.markdown("""
+**Method**
+1. Slide a 23-nt window across the sequence.
+2. Select windows where positions 21-23 match NGG (PAM).
+3. Use first 20 nt as guide RNA, compute GC%, and estimate approximate off-target hits.
+""")
+
+    default_crispr_seq = "ATGCGTACGATCGATCGATCGGATCGATCGATCGTAGGATCGATCGATCGG"
+    if "module4_seq" not in st.session_state:
+        st.session_state["module4_seq"] = default_crispr_seq
+
+    if st.button("Load Example CRISPR Sequence", key="module4_example_btn"):
+        st.session_state["module4_seq"] = default_crispr_seq
+        st.rerun()
+
+    crispr_seq = st.text_area("Input DNA sequence for guide design", key="module4_seq", height=120)
+
+    if st.button("Design CRISPR Guides", key="module4_run"):
+        start_time = time.time()
+        clean = sanitize_dna_sequence(crispr_seq)
+        if len(clean) < 23:
+            st.warning("Please provide at least 23 bp.")
+        else:
+            guides_df = find_crispr_guides(clean)
+            if guides_df.empty:
+                st.warning("No NGG PAM sites found in this sequence.")
+            else:
+                st.success(f"Found {len(guides_df)} candidate guides.")
+                st.dataframe(guides_df, use_container_width=True)
+                guides_csv = guides_df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "Download CRISPR Guides (CSV)",
+                    data=guides_csv,
+                    file_name="crispr_guides.csv",
+                    mime="text/csv",
+                )
+                add_export_artifact("crispr_guides.csv", guides_csv)
                 st.caption(f"Analysis completed in {time.time() - start_time:.2f} seconds")
