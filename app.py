@@ -44,6 +44,13 @@ def parse_fasta_text(text: str):
     return [s for s in sequences if s]
 
 
+# Curated demo datasets
+DATASET_BACTERIAL_PANGENOME = "ATGCGTAC\nATGCGTGC\nATGCATAC\nATGCGTAC\nATGAGTAC"
+DATASET_BRCA1_PROMOTER = "ATGCGTACGATCGATCGATCGTAGCTAGCTAGCGATCGATCGATCGTAGCTAG"
+DATASET_SARS_COV2_FRAGMENT = "ATGTTTGTTTTTCTTGTTTTAATTGTTACCTTCTTTTAGAAGGTTCCGAAGGT"
+DATASET_BRCA1_EXON = "ATGGATTTATCTGCTCTTCGCGTTGAAGAAGTACAAAATGTCATTAATGCTAT"
+
+
 def fig_to_png_bytes(fig):
     buffer = io.BytesIO()
     fig.savefig(buffer, format="png", dpi=300, bbox_inches="tight")
@@ -493,11 +500,15 @@ Visualization + Export
     )
 
     with st.expander("Real Dataset Examples"):
-        st.markdown("""
-- human BRCA1 sequence
-- SARS-CoV-2 genome segment
-- bacterial pangenome example
-""")
+        st.code(
+            """Real Dataset Examples
+
+• Human BRCA1 gene (variant prediction + CRISPR)  → Load BRCA1 buttons in Module 2/4
+• SARS-CoV-2 genome fragment (FM-index search)    → Load SARS-CoV-2 Example in Module 3
+• Bacterial pangenome cluster (graph construction) → Load Bacterial Example in Module 1
+""",
+            language="text",
+        )
 
 elif page == "Module 1: Pangenome Explorer":
     st.title("Module 1: Pangenome Graph Explorer")
@@ -546,11 +557,17 @@ Nodes represent unique k-mers and directed edges represent adjacency relationshi
 3. Click Generate Pangenome Graph
 4. Explore graph and conservation plot
 """)
-    st.code(example_seqs, language="text")
+    st.code(DATASET_BACTERIAL_PANGENOME, language="text")
     st.download_button(
         "Download Example Dataset",
-        data=example_seqs.encode("utf-8"),
+        data=DATASET_BACTERIAL_PANGENOME.encode("utf-8"),
         file_name="module1_example_sequences.txt",
+        mime="text/plain",
+    )
+    st.download_button(
+        "Download Bacterial Pangenome Dataset",
+        data=DATASET_BACTERIAL_PANGENOME.encode("utf-8"),
+        file_name="bacterial_pangenome.fasta",
         mime="text/plain",
     )
 
@@ -695,10 +712,16 @@ Inference time: 0.03s
             st.session_state["module2_example_loaded"] = True
             st.rerun()
 
+        if st.button("Load BRCA1 Example", key="module2_brca1_btn"):
+            st.session_state["module2_single_seq"] = DATASET_BRCA1_PROMOTER
+            st.session_state["module2_example_loaded"] = True
+            st.rerun()
+
         if st.session_state.pop("module2_example_loaded", False):
             st.success("Example variant sequence loaded.")
 
         dna_sequence = st.text_area("Enter DNA Sequence", height=120, key="module2_single_seq")
+        st.download_button("Download BRCA1 Dataset", data=DATASET_BRCA1_PROMOTER.encode("utf-8"), file_name="brca1_promoter_sequence.fasta", mime="text/plain", key="module2_brca1_download")
         seed = st.number_input("Reproducibility Seed", min_value=0, max_value=100000, value=42, key="module2_single_seed")
         if st.button("Predict Functional Impact"):
             seq = sanitize_dna_sequence(dna_sequence)
@@ -876,11 +899,18 @@ Efficient pattern search is performed using the FM-index with backward search to
         st.session_state["module3_example_loaded"] = True
         st.rerun()
 
+    if st.button("Load SARS-CoV-2 Example", key="module3_sars_btn"):
+        st.session_state["module3_seq"] = DATASET_SARS_COV2_FRAGMENT
+        st.session_state["module3_pattern"] = "GTTT"
+        st.session_state["module3_example_loaded"] = True
+        st.rerun()
+
     if st.session_state.pop("module3_example_loaded", False):
         st.success("Example FM-index search loaded.")
 
     sequence_input = st.text_input("Enter DNA sequence", key="module3_seq")
     pattern = st.text_input("Pattern for FM-index search", key="module3_pattern")
+    st.download_button("Download SARS-CoV-2 Fragment", data=DATASET_SARS_COV2_FRAGMENT.encode("utf-8"), file_name="sars_cov2_fragment.fasta", mime="text/plain", key="module3_sars_download")
 
     if st.button("Reset Module 3", key="module3_reset_btn"):
         for key in ["module3_seq", "module3_pattern"]:
@@ -982,9 +1012,19 @@ It reports guide sequence, PAM, GC%, and a simple off-target similarity indicato
 
     if st.button("Load Example CRISPR Sequence", key="module4_example_btn"):
         st.session_state["module4_seq"] = default_crispr_seq
+        st.session_state["module4_example_loaded"] = True
         st.rerun()
 
+    if st.button("Load BRCA1 Exon Example", key="module4_brca1_btn"):
+        st.session_state["module4_seq"] = DATASET_BRCA1_EXON
+        st.session_state["module4_example_loaded"] = True
+        st.rerun()
+
+    if st.session_state.pop("module4_example_loaded", False):
+        st.success("Example CRISPR sequence loaded.")
+
     crispr_seq = st.text_area("Input DNA sequence for guide design", key="module4_seq", height=120)
+    st.download_button("Download BRCA1 Exon Dataset", data=DATASET_BRCA1_EXON.encode("utf-8"), file_name="brca1_exon_sequence.fasta", mime="text/plain", key="module4_brca1_download")
 
     if st.button("Design CRISPR Guides", key="module4_run"):
         start_time = time.time()
