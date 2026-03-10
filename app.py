@@ -473,6 +473,12 @@ if page == "Home - Overview":
         "A modular computational genomics platform integrating pangenome graph analysis, "
         "AI-based variant impact prediction, and compressed genome indexing algorithms."
     )
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Active Modules", "4", "Pangenome + DeepNCV + FM-index + CRISPR")
+    c2.metric("Built-in Demo Datasets", "4", "Biologically grounded examples")
+    c3.metric("Export Artifacts in Session", str(len(st.session_state.get('export_artifacts', {}))), "Ready for ZIP")
+
     st.markdown(
         """
 - Module 1: Graph-based pangenome + conservation + FASTA upload + exports
@@ -1006,6 +1012,12 @@ It reports guide sequence, PAM, GC%, and a simple off-target similarity indicato
 3. Use first 20 nt as guide RNA, compute GC%, and estimate approximate off-target hits.
 """)
 
+    # Premium metric panel
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Off-Targets (last run)", str(st.session_state.get("module4_last_offtargets", 0)), "Lower is better")
+    m2.metric("Average GC Content (last run)", f"{st.session_state.get('module4_last_avg_gc', 0.0):.1f}%", "Target: 40-70%")
+    m3.metric("High-Score Guides (last run)", str(st.session_state.get("module4_last_high", 0)), "CRISPR-ready")
+
     default_crispr_seq = "ATGCGTACGATCGATCGATCGGATCGATCGATCGTAGGATCGATCGATCGG"
     if "module4_seq" not in st.session_state:
         st.session_state["module4_seq"] = default_crispr_seq
@@ -1037,6 +1049,11 @@ It reports guide sequence, PAM, GC%, and a simple off-target similarity indicato
                 st.warning("No NGG PAM sites found in this sequence.")
             else:
                 st.success(f"Found {len(guides_df)} candidate guides.")
+
+                st.session_state["module4_last_avg_gc"] = float(guides_df["GC%"].mean())
+                st.session_state["module4_last_high"] = int((guides_df["Score"] == "High").sum())
+                st.session_state["module4_last_offtargets"] = int(guides_df["OffTargetHits(<=2mm)"].sum())
+
                 st.dataframe(guides_df, use_container_width=True)
                 guides_csv = guides_df.to_csv(index=False).encode("utf-8")
                 st.download_button(
