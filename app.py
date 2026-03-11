@@ -2395,7 +2395,7 @@ elif page == "Module 8: Genome Browser / Multi-Track Visualization":
     # Auto-generate genome browser if DNA sequence is present
     clean_seq = sanitize_dna_sequence(sequence_input)
    
-    if "module8_browser_data" not in st.session_state:
+     if "module8_browser_data" not in st.session_state:
         st.session_state.module8_browser_data = None
 
     if st.button("Generate Genome Browser", key="module8_generate_browser"):
