@@ -23,29 +23,29 @@ import torch.nn.functional as F
 # Utilities
 # -----------------------------
 def sanitize_dna_sequence(text: str) -> str:
-return "".join(text.split()).upper()
+	return "".join(text.split()).upper()
 
 
 def parse_fasta_text(text: str):
-"""Minimal FASTA parser; returns list of DNA sequences."""
-sequences = []
-current = []
+	"""Minimal FASTA parser; returns list of DNA sequences."""
+	sequences = []
+	current = []
 
-for raw_line in text.splitlines():
-line = raw_line.strip()
-if not line:
-continue
-if line.startswith(">"):
-if current:
-sequences.append(sanitize_dna_sequence("".join(current)))
-current = []
-else:
-current.append(line)
+	for raw_line in text.splitlines():
+		line = raw_line.strip()
+		if not line:
+			continue
+		if line.startswith(">"):
+			if current:
+				sequences.append(sanitize_dna_sequence("".join(current)))
+				current = []
+		else:
+			current.append(line)
 
-if current:
-sequences.append(sanitize_dna_sequence("".join(current)))
+	if current:
+		sequences.append(sanitize_dna_sequence("".join(current)))
 
-return [s for s in sequences if s]
+	return [s for s in sequences if s]
 
 
 # Curated demo datasets
@@ -57,29 +57,29 @@ DATASET_TRANSLATION_DNA = "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG"
 
 
 def fig_to_png_bytes(fig):
-buffer = io.BytesIO()
-fig.savefig(buffer, format="png", dpi=300, bbox_inches="tight")
-buffer.seek(0)
-return buffer.getvalue()
+	buffer = io.BytesIO()
+	fig.savefig(buffer, format="png", dpi=300, bbox_inches="tight")
+	buffer.seek(0)
+	return buffer.getvalue()
 
 
 def add_export_artifact(filename: str, data: bytes):
-if "export_artifacts" not in st.session_state:
-st.session_state["export_artifacts"] = {}
-st.session_state["export_artifacts"][filename] = data
+	if "export_artifacts" not in st.session_state:
+		st.session_state["export_artifacts"] = {}
+	st.session_state["export_artifacts"][filename] = data
 
 
 def build_results_zip_bytes():
-artifacts = st.session_state.get("export_artifacts", {})
-if not artifacts:
-return None
+	artifacts = st.session_state.get("export_artifacts", {})
+	if not artifacts:
+		return None
 
-zip_buffer = io.BytesIO()
-with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-for name, data in artifacts.items():
-zf.writestr(name, data)
-zip_buffer.seek(0)
-return zip_buffer.getvalue()
+	zip_buffer = io.BytesIO()
+	with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+		for name, data in artifacts.items():
+			zf.writestr(name, data)
+	zip_buffer.seek(0)
+	return zip_buffer.getvalue()
 
 
 # -----------------------------
