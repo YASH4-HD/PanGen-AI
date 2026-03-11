@@ -23,13 +23,13 @@ import torch.nn.functional as F
 # Utilities
 # -----------------------------
 def sanitize_dna_sequence(text: str) -> str:
-return "".join(text.split()).upper()
+   return "".join(text.split()).upper()
 
 
 def parse_fasta_text(text: str):
-"""Minimal FASTA parser; returns list of DNA sequences."""
-sequences = []
-current = []
+   """Minimal FASTA parser; returns list of DNA sequences."""
+   sequences = []
+   current = []
 
 for raw_line in text.splitlines():
 line = raw_line.strip()
