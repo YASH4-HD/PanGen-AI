@@ -2391,10 +2391,12 @@ elif page == "Module 8: Genome Browser / Multi-Track Visualization":
     # Auto-generate genome browser if DNA sequence is present
     clean_seq = sanitize_dna_sequence(sequence_input)
    
+   
+    if "module8_browser_data" not in st.session_state:
+        st.session_state.module8_browser_data = None
+
     if st.button("Generate Genome Browser", key="module8_generate_browser"):
         if clean_seq and len(clean_seq) >= 20:
-            st.markdown("### Interactive Genome Browser")
-
             with st.spinner("Generating genome browser tracks..."):
                 start_time = time.time()
 
@@ -2405,80 +2407,95 @@ elif page == "Module 8: Genome Browser / Multi-Track Visualization":
                 track_data = create_genome_browser_tracks(display_seq)
                 fig = create_genome_browser_figure(track_data)
 
-                # Display the genome browser
-                st.plotly_chart(fig, use_container_width=True)
-
-                # Additional information
-                st.markdown("### Track Information")
-
-                track_info_cols = st.columns(5)
-                with track_info_cols[0]:
-                    st.metric("Sequence Length", len(display_seq))
-
-                with track_info_cols[1]:
-                    if show_variant_impact:
-                        avg_impact = np.mean(track_data['variant_impact'])
-                        st.metric("Avg Variant Impact", f"{avg_impact:.3f}")
-
-                with track_info_cols[2]:
-                    if show_crispr_guides:
-                        guides_df = find_crispr_guides(display_seq)
-                        st.metric("CRISPR Guides", len(guides_df))
-
-                with track_info_cols[3]:
-                    if show_gene_annotation:
-                        gene_regions = sum(track_data['gene_annotation'])
-                        st.metric("Gene Regions (bp)", gene_regions)
-
-                with track_info_cols[4]:
-                    if show_protein_coding:
-                        coding_regions = sum(track_data['protein_coding'])
-                        st.metric("Coding Regions (bp)", coding_regions)
-
-                # Detailed track data
-                st.markdown("### Detailed Track Analysis")
-
-                # Sequence composition
-                seq_comp = pd.Series(list(display_seq)).value_counts()
-                st.markdown("**Sequence Composition:**")
-                comp_cols = st.columns(4)
-                bases = ['A', 'T', 'G', 'C']
-                for i, base in enumerate(bases):
-                    with comp_cols[i]:
-                        count = seq_comp.get(base, 0)
-                        percentage = (count / len(display_seq)) * 100
-                        st.metric(f"Base {base}", f"{count} ({percentage:.1f}%)")
-
-                # Export functionality
-                st.markdown("### Export Results")
-
-                if st.button("Export Genome Browser Data", key="module8_export"):
-                    # Create export data
-                    export_data = {
-                        'Position': track_data['positions'],
-                        'DNA_Sequence': track_data['dna_sequence'],
-                        'Variant_Impact': track_data['variant_impact'],
-                        'CRISPR_Guides': track_data['crispr_guides'],
-                        'Gene_Annotation': track_data['gene_annotation'],
-                        'Protein_Coding': track_data['protein_coding']
-                    }
-
-                    export_df = pd.DataFrame(export_data)
-                    csv_bytes = export_df.to_csv(index=False).encode('utf-8')
-                    add_export_artifact("genome_browser_tracks.csv", csv_bytes)
-
-                    # Also export the figure
-                    fig_bytes = fig_to_png_bytes(fig)
-                    add_export_artifact("genome_browser_visualization.png", fig_bytes)
-
-                    st.success("Genome browser data exported successfully!")
-
-                st.caption(f"Analysis completed in {time.time() - start_time:.2f} seconds")
-
-                st.caption(
-                    "Multi-track genomic visualization integrating variant impact, CRISPR guides, gene annotation, and coding regions."
-                )
+                st.session_state.module8_browser_data = {
+                    "display_seq": display_seq,
+                    "track_data": track_data,
+                    "fig": fig,
+                    "analysis_time": time.time() - start_time,
+                }
         elif clean_seq:
             st.warning("Sequence too short for genome browser visualization. Please provide at least 20 nucleotides.")
+            st.session_state.module8_browser_data = None
         else:
             st.info("Enter a DNA sequence above to generate the interactive genome browser.")
+            st.session_state.module8_browser_data = None
+
+    browser_data = st.session_state.module8_browser_data
+    if browser_data:
+        display_seq = browser_data["display_seq"]
+        track_data = browser_data["track_data"]
+        fig = browser_data["fig"]
+
+        st.markdown("### Interactive Genome Browser")
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Additional information
+        st.markdown("### Track Information")
+
+        track_info_cols = st.columns(5)
+        with track_info_cols[0]:
+            st.metric("Sequence Length", len(display_seq))
+
+        with track_info_cols[1]:
+            if show_variant_impact:
+                avg_impact = np.mean(track_data['variant_impact'])
+                st.metric("Avg Variant Impact", f"{avg_impact:.3f}")
+
+        with track_info_cols[2]:
+            if show_crispr_guides:
+                guides_df = find_crispr_guides(display_seq)
+                st.metric("CRISPR Guides", len(guides_df))
+
+        with track_info_cols[3]:
+            if show_gene_annotation:
+                gene_regions = sum(track_data['gene_annotation'])
+                st.metric("Gene Regions (bp)", gene_regions)
+
+        with track_info_cols[4]:
+            if show_protein_coding:
+                coding_regions = sum(track_data['protein_coding'])
+                st.metric("Coding Regions (bp)", coding_regions)
+
+        # Detailed track data
+        st.markdown("### Detailed Track Analysis")
+
+        # Sequence composition
+        seq_comp = pd.Series(list(display_seq)).value_counts()
+        st.markdown("**Sequence Composition:**")
+        comp_cols = st.columns(4)
+        bases = ['A', 'T', 'G', 'C']
+        for i, base in enumerate(bases):
+            with comp_cols[i]:
+                count = seq_comp.get(base, 0)
+                percentage = (count / len(display_seq)) * 100
+                st.metric(f"Base {base}", f"{count} ({percentage:.1f}%)")
+
+        # Export functionality
+        st.markdown("### Export Results")
+
+        if st.button("Export Genome Browser Data", key="module8_export"):
+            # Create export data
+            export_data = {
+                'Position': track_data['positions'],
+                'DNA_Sequence': track_data['dna_sequence'],
+                'Variant_Impact': track_data['variant_impact'],
+                'CRISPR_Guides': track_data['crispr_guides'],
+                'Gene_Annotation': track_data['gene_annotation'],
+                'Protein_Coding': track_data['protein_coding']
+            }
+
+            export_df = pd.DataFrame(export_data)
+            csv_bytes = export_df.to_csv(index=False).encode('utf-8')
+            add_export_artifact("genome_browser_tracks.csv", csv_bytes)
+
+            # Also export the figure
+            fig_bytes = fig_to_png_bytes(fig)
+            add_export_artifact("genome_browser_visualization.png", fig_bytes)
+
+            st.success("Genome browser data exported successfully!")
+
+        st.caption(f"Analysis completed in {browser_data['analysis_time']:.2f} seconds")
+
+        st.caption(
+            "Multi-track genomic visualization integrating variant impact, CRISPR guides, gene annotation, and coding regions."
+        )
