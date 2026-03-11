@@ -2354,170 +2354,120 @@ elif page == "Module 7: Genome Annotation Explorer":
     with col3:
         if st.button("Generate Gene Annotations", key="module7_generate_genes"):
             clean_seq = sanitize_dna_sequence(sequence_input)
-            if clean_seq and len(clean_seq) >= 50:
-                # Generate simple gene annotations
-                gene_annotations = []
-                seq_len = len(clean_seq)
-                
-                # Add a few sample genes
-                gene1_end = min(seq_len, 100)
-                gene_annotations.append(f"1\t{gene1_end}\tGene\tAuto-generated Gene 1")
-                gene_annotations.append(f"1\t20\tPromoter\tPromoter 1")
-                gene_annotations.append(f"21\t50\tExon\tExon 1")
-                gene_annotations.append(f"51\t80\tExon\tExon 2")
-                
-                if seq_len > 120:
-                    gene2_start = 101
-                    gene2_end = min(seq_len, 200)
-                    gene_annotations.append(f"{gene2_start}\t{gene2_end}\tGene\tAuto-generated Gene 2")
-                    gene_annotations.append(f"{gene2_start}\t{gene2_start+19}\tPromoter\tPromoter 2")
-                    gene_annotations.append(f"{gene2_start+20}\t{gene2_start+40}\tExon\tExon 3")
-                    gene_annotations.append(f"{gene2_start+41}\t{gene2_start+60}\tExon\tExon 4")
-                
-                st.session_state.module7_annotations = "\n".join(gene_annotations)
-                st.success("Generated sample gene annotations!")
-                st.rerun()
-            else:
-                st.warning("Sequence too short for meaningful gene annotation (minimum 50 bp).")
+               """Create multi-track genome browser visualization using Plotly subplots."""
+    positions = track_data['positions']
 
-
-elif page == "Module 8: Genome Browser / Multi-Track Visualization":
-    st.title("Module 8: Genome Browser / Multi-Track Visualization")
-    st.subheader("Interactive Multi-Track Genome Browser")
-    st.markdown("""
-    This module provides an interactive genome browser with multiple tracks showing:
-    - DNA sequence visualization
-    - Variant impact scores
-    - CRISPR guide locations
-    - Gene annotations
-    - Protein coding regions
-    """)
-    
-    # Input section
-    st.markdown("### Input DNA Sequence")
-    sequence_input = st.text_area(
-        "Enter DNA sequence (FASTA format or plain):",
-        value=DATASET_BRCA1_PROMOTER,
-        height=120,
-        help="Enter a DNA sequence to visualize in the genome browser. Minimum 50 bp recommended."
-    )
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        track_length = st.slider("Track Length (bp)", min_value=50, max_value=500, value=200, step=10)
-    
-    with col2:
-        show_variant_impact = st.checkbox("Show Variant Impact", value=True)
-        show_crispr_guides = st.checkbox("Show CRISPR Guides", value=True)
-        show_gene_annotation = st.checkbox("Show Gene Annotation", value=True)
-        show_protein_coding = st.checkbox("Show Protein Coding", value=True)
-    
-    # Auto-generate genome browser if DNA sequence is present
-    clean_seq = sanitize_dna_sequence(sequence_input)
-   
-    if "module8_browser_data" not in st.session_state:
-        st.session_state.module8_browser_data = None
-
-    if st.button("Generate Genome Browser", key="module8_generate_browser"):
-        if clean_seq and len(clean_seq) >= 20:
-            with st.spinner("Generating genome browser tracks..."):
-                start_time = time.time()
-
-                # Limit sequence length for visualization
-                display_seq = clean_seq[:track_length]
-
-                # Create track data
-                track_data = create_genome_browser_tracks(display_seq)
-
-                st.session_state.module8_browser_data = {
-                    "display_seq": display_seq,
-                    "track_data": track_data,
-                    "analysis_time": time.time() - start_time,
-                }
-        elif clean_seq:
-            st.warning("Sequence too short for genome browser visualization. Please provide at least 20 nucleotides.")
-            st.session_state.module8_browser_data = None
-        else:
-            st.info("Enter a DNA sequence above to generate the interactive genome browser.")
-            st.session_state.module8_browser_data = None
-
-    browser_data = st.session_state.module8_browser_data
-    if browser_data:
-        display_seq = browser_data["display_seq"]
-        track_data = browser_data["track_data"]
-        fig = create_genome_browser_figure(track_data)
-
-        st.markdown("### Interactive Genome Browser")
-        st.plotly_chart(fig, use_container_width=True)
-
-        # Additional information
-        st.markdown("### Track Information")
-
-        track_info_cols = st.columns(5)
-        with track_info_cols[0]:
-            st.metric("Sequence Length", len(display_seq))
-
-        with track_info_cols[1]:
-            if show_variant_impact:
-                avg_impact = np.mean(track_data['variant_impact'])
-                st.metric("Avg Variant Impact", f"{avg_impact:.3f}")
-
-        with track_info_cols[2]:
-            if show_crispr_guides:
-                guides_df = find_crispr_guides(display_seq)
-                st.metric("CRISPR Guides", len(guides_df))
-
-        with track_info_cols[3]:
-            if show_gene_annotation:
-                gene_regions = sum(track_data['gene_annotation'])
-                st.metric("Gene Regions (bp)", gene_regions)
-
-        with track_info_cols[4]:
-            if show_protein_coding:
-                coding_regions = sum(track_data['protein_coding'])
-                st.metric("Coding Regions (bp)", coding_regions)
-
-        # Detailed track data
-        st.markdown("### Detailed Track Analysis")
-
-        # Sequence composition
-        seq_comp = pd.Series(list(display_seq)).value_counts()
-        st.markdown("**Sequence Composition:**")
-        comp_cols = st.columns(4)
-        bases = ['A', 'T', 'G', 'C']
-        for i, base in enumerate(bases):
-            with comp_cols[i]:
-                count = seq_comp.get(base, 0)
-                percentage = (count / len(display_seq)) * 100
-                st.metric(f"Base {base}", f"{count} ({percentage:.1f}%)")
-
-        # Export functionality
-        st.markdown("### Export Results")
-
-        if st.button("Export Genome Browser Data", key="module8_export"):
-            # Create export data
-            export_data = {
-                'Position': track_data['positions'],
-                'DNA_Sequence': track_data['dna_sequence'],
-                'Variant_Impact': track_data['variant_impact'],
-                'CRISPR_Guides': track_data['crispr_guides'],
-                'Gene_Annotation': track_data['gene_annotation'],
-                'Protein_Coding': track_data['protein_coding']
-            }
-
-            export_df = pd.DataFrame(export_data)
-            csv_bytes = export_df.to_csv(index=False).encode('utf-8')
-            add_export_artifact("genome_browser_tracks.csv", csv_bytes)
-
-            # Also export the figure
-            fig_bytes = fig_to_png_bytes(fig)
-            add_export_artifact("genome_browser_visualization.png", fig_bytes)
-
-            st.success("Genome browser data exported successfully!")
-
-        st.caption(f"Analysis completed in {browser_data['analysis_time']:.2f} seconds")
-
-        st.caption(
-            "Multi-track genomic visualization integrating variant impact, CRISPR guides, gene annotation, and coding regions."
+    # Validate data
+    if not positions or len(positions) == 0:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data to display",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
+            font=dict(size=20),
         )
+        fig.update_layout(height=400)
+        return fig
+
+    # Create subplots (5 rows, 1 column)
+    fig = make_subplots(
+        rows=5,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.08,
+        subplot_titles=(
+            "DNA Sequence",
+            "Variant Impact",
+            "CRISPR Guides",
+            "Gene Annotation",
+            "Protein Coding",
+        ),
+    )
+
+    # Track 1: DNA Sequence
+    fig.add_trace(
+        go.Heatmap(
+            z=[track_data['dna_sequence']],
+            x=positions,
+            y=[""],
+            colorscale="Viridis",
+            showscale=False,
+            hovertemplate='Position: %{x}<br>Base Value: %{z}<extra></extra>',
+        ),
+        row=1,
+        col=1,
+    )
+
+    # Track 2: Variant Impact
+    fig.add_trace(
+        go.Heatmap(
+            z=[track_data['variant_impact']],
+            x=positions,
+            y=[""],
+            colorscale="Reds",
+            showscale=False,
+            hovertemplate='Position: %{x}<br>Impact Score: %{z:.3f}<extra></extra>',
+        ),
+        row=2,
+        col=1,
+    )
+
+    # Track 3: CRISPR Guides
+    fig.add_trace(
+        go.Heatmap(
+            z=[track_data['crispr_guides']],
+            x=positions,
+            y=[""],
+            colorscale="Blues",
+            showscale=False,
+            hovertemplate='Position: %{x}<br>CRISPR Score: %{z:.2f}<extra></extra>',
+        ),
+        row=3,
+        col=1,
+    )
+
+    # Track 4: Gene Annotation
+    fig.add_trace(
+        go.Heatmap(
+            z=[track_data['gene_annotation']],
+            x=positions,
+            y=[""],
+            colorscale="Greens",
+            showscale=False,
+            hovertemplate='Position: %{x}<br>Gene Region: %{z}<extra></extra>',
+        ),
+        row=4,
+        col=1,
+    )
+
+    # Track 5: Protein Coding
+    fig.add_trace(
+        go.Heatmap(
+            z=[track_data['protein_coding']],
+            x=positions,
+            y=[""],
+            colorscale="Purples",
+            showscale=False,
+            hovertemplate='Position: %{x}<br>Coding Region: %{z}<extra></extra>',
+        ),
+        row=5,
+        col=1,
+    )
+
+    # Update layout for proper height and look
+    fig.update_layout(
+        title_text="Interactive Genome Browser",
+        height=850,
+        showlegend=False,
+        margin=dict(l=40, r=40, t=80, b=40),
+        hovermode='closest',
+    )
+
+    # Add x-axis title only to the bottom track
+    fig.update_xaxes(title_text="Genomic Position", row=5, col=1)
+
+    # Hide y-axis tick labels since subplot titles are shown
+    fig.update_yaxes(showticklabels=False)
