@@ -10,6 +10,9 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import stmol
+import py3Dmol
+import requests
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -640,6 +643,89 @@ def build_protein_mutation_landscape(protein_sequence: str):
         for i, alt in enumerate(PROTEIN_AA_ORDER):
             matrix[i, j] = BLOSUM62[ref][alt]
     return PROTEIN_AA_ORDER, matrix
+
+
+# -----------------------------
+# Protein Structure Viewer Functions
+# -----------------------------
+def fetch_pdb_data(pdb_id: str):
+    """Fetch PDB data from RCSB or AlphaFold database."""
+    pdb_id = pdb_id.upper().strip()
+    
+    # Try RCSB first for standard PDB IDs
+    rcsb_url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
+    try:
+        response = requests.get(rcsb_url, timeout=10)
+        if response.status_code == 200:
+            return response.text, "rcsb"
+    except:
+        pass
+    
+    # Try AlphaFold for UniProt IDs
+    alphafold_url = f"https://alphafold.ebi.ac.uk/files/AF-{pdb_id}-F1-model_v4.pdb"
+    try:
+        response = requests.get(alphafold_url, timeout=10)
+        if response.status_code == 200:
+            return response.text, "alphafold"
+    except:
+        pass
+    
+    return None, None
+
+
+def create_3d_structure_viewer(pdb_data: str, style: str = "cartoon"):
+    """Create interactive 3D protein structure viewer."""
+    # Create 3Dmol viewer
+    viewer = py3Dmol.view(width=800, height=600)
+    
+    # Add PDB data
+    viewer.addModel(pdb_data, "pdb")
+    
+    # Set style based on selection
+    if style == "cartoon":
+        viewer.setStyle({'cartoon': {'color': 'spectrum'}})
+    elif style == "stick":
+        viewer.setStyle({'stick': {'colorscheme': 'Jmol'}})
+    elif style == "sphere":
+        viewer.setStyle({'sphere': {'colorscheme': 'Jmol'}})
+    elif style == "line":
+        viewer.setStyle({'line': {'colorscheme': 'Jmol'}})
+    
+    # Zoom to fit
+    viewer.zoomTo()
+    
+    # Set background
+    viewer.setBackgroundColor('#f0f0f0')
+    
+    return viewer
+
+
+def render_structure_in_streamlit(viewer):
+    """Render 3Dmol viewer in Streamlit."""
+    # Convert viewer to HTML
+    viewer_html = viewer._make_html()
+    
+    # Display in Streamlit
+    st.components.v1.html(viewer_html, height=600, width=800)
+
+
+def get_protein_info(uniprot_id: str):
+    """Get basic protein information from UniProt."""
+    try:
+        url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}.json"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                'name': data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown'),
+                'length': data.get('sequence', {}).get('length', 0),
+                'mass': data.get('sequence', {}).get('mass', 0),
+                'organism': data.get('organism', {}).get('scientificName', 'Unknown'),
+                'function': data.get('comments', [{}])[0].get('texts', [{}])[0].get('value', 'No functional description available') if data.get('comments') else 'No functional description available'
+            }
+    except:
+        pass
+    return None
 
 
 # -----------------------------
@@ -1612,10 +1698,162 @@ DNA→protein translation, protein properties, AlphaFold lookup, and a BLOSUM62-
             st.dataframe(comp_df, use_container_width=True)
 
     with tabs[2]:
-        uniprot_id = st.text_input("UniProt ID", value="P04637", key="module6_uniprot")
-        alphafold_url = f"https://alphafold.ebi.ac.uk/entry/{uniprot_id.strip()}"
-        st.link_button("Open AlphaFold Entry", alphafold_url)
-        st.caption("Tip: Use UniProt IDs like P04637 (p53), Q9Y6K9, or P38398.")
+        st.markdown("### Interactive 3D Protein Structure Viewer")
+        st.markdown("""
+        Fetch and visualize protein structures from RCSB PDB or AlphaFold database.
+        Enter either a PDB ID (e.g., 1A3N) or UniProt ID (e.g., P04637).
+        """)
+        
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            protein_id = st.text_input(
+                "PDB ID or UniProt ID", 
+                value="P04637", 
+                key="module6_structure_id",
+                help="Enter PDB ID (e.g., 1A3N, 2HYY) or UniProt ID (e.g., P04637, Q9Y6K9)"
+            )
+        
+        with col2:
+            style_options = ["cartoon", "stick", "sphere", "line"]
+            selected_style = st.selectbox(
+                "Visualization Style",
+                style_options,
+                index=0,
+                key="module6_structure_style"
+            )
+        
+        # Example proteins dropdown
+        with st.expander("Example Proteins"):
+            example_proteins = {
+                "p53 (Tumor suppressor)": "P04637",
+                "Hemoglobin": "1A3N", 
+                "Lysozyme": "1AKI",
+                "DNA Polymerase": "3K5A",
+                "Insulin": "1ZNJ",
+                "Myoglobin": "1MBO",
+                "Carbonic Anhydrase": "2CBA"
+            }
+            
+            selected_example = st.selectbox(
+                "Select an example protein:",
+                ["None"] + list(example_proteins.keys()),
+                key="module6_example_protein"
+            )
+            
+            if selected_example != "None":
+                protein_id = example_proteins[selected_example]
+                st.session_state.module6_structure_id = protein_id
+                st.rerun()
+        
+        if st.button("Fetch and Visualize Structure", key="module6_fetch_structure"):
+            if not protein_id.strip():
+                st.error("Please enter a PDB ID or UniProt ID.")
+            else:
+                with st.spinner(f"Fetching structure for {protein_id}..."):
+                    pdb_data, source = fetch_pdb_data(protein_id)
+                    
+                    if pdb_data:
+                        st.success(f"Structure fetched from {source.upper()} database!")
+                        
+                        # Display protein information if UniProt ID
+                        if len(protein_id) == 6 and protein_id.startswith('P'):
+                            protein_info = get_protein_info(protein_id)
+                            if protein_info:
+                                st.markdown("### Protein Information")
+                                info_col1, info_col2, info_col3 = st.columns(3)
+                                info_col1.metric("Name", protein_info['name'][:30] + "..." if len(protein_info['name']) > 30 else protein_info['name'])
+                                info_col2.metric("Length", f"{protein_info['length']} aa")
+                                info_col3.metric("Mass", f"{protein_info['mass']/1000:.1f} kDa")
+                                
+                                st.markdown("**Organism:** " + protein_info['organism'])
+                                with st.expander("Functional Description"):
+                                    st.write(protein_info['function'])
+                        
+                        # Create and display 3D structure
+                        st.markdown("### 3D Structure Visualization")
+                        viewer = create_3d_structure_viewer(pdb_data, selected_style)
+                        render_structure_in_streamlit(viewer)
+                        
+                        # Structure controls
+                        st.markdown("### Structure Controls")
+                        control_col1, control_col2, control_col3 = st.columns(3)
+                        
+                        with control_col1:
+                            if st.button("Reset View", key="module6_reset_view"):
+                                viewer.zoomTo()
+                                render_structure_in_streamlit(viewer)
+                                st.rerun()
+                        
+                        with control_col2:
+                            if st.button("Toggle Spin", key="module6_toggle_spin"):
+                                viewer.spin()
+                                render_structure_in_streamlit(viewer)
+                                st.rerun()
+                        
+                        with control_col3:
+                            if st.button("Download Structure", key="module6_download_structure"):
+                                st.download_button(
+                                    "Download PDB File",
+                                    data=pdb_data,
+                                    file_name=f"{protein_id}.pdb",
+                                    mime="text/plain",
+                                    key="module6_pdb_download"
+                                )
+                        
+                        # Style options
+                        st.markdown("### Visualization Options")
+                        style_col1, style_col2 = st.columns(2)
+                        
+                        with style_col1:
+                            st.markdown("**Color Schemes:**")
+                            if st.button("Spectrum", key="module6_spectrum"):
+                                viewer.setStyle({'cartoon': {'color': 'spectrum'}})
+                                render_structure_in_streamlit(viewer)
+                                st.rerun()
+                            
+                            if st.button("Chain Colors", key="module6_chain_colors"):
+                                viewer.setStyle({'cartoon': {'color': 'chain'}})
+                                render_structure_in_streamlit(viewer)
+                                st.rerun()
+                        
+                        with style_col2:
+                            st.markdown("**Background Colors:**")
+                            if st.button("Light Background", key="module6_light_bg"):
+                                viewer.setBackgroundColor('#f0f0f0')
+                                render_structure_in_streamlit(viewer)
+                                st.rerun()
+                            
+                            if st.button("Dark Background", key="module6_dark_bg"):
+                                viewer.setBackgroundColor('#1e1e1e')
+                                render_structure_in_streamlit(viewer)
+                                st.rerun()
+                        
+                        # Add to export artifacts
+                        add_export_artifact(f"{protein_id}.pdb", pdb_data.encode('utf-8'))
+                        
+                    else:
+                        st.error(f"Could not fetch structure for {protein_id}. Please check the ID and try again.")
+                        st.markdown("""
+                        **Troubleshooting:**
+                        - For PDB IDs: Use 4-character codes like 1A3N, 2HYY
+                        - For UniProt IDs: Use 6-character codes starting with P, Q, O, etc.
+                        - Make sure you have an internet connection
+                        - Some structures may not be available in the databases
+                        """)
+        
+        # Database information
+        st.markdown("---")
+        st.markdown("### Database Information")
+        st.markdown("""
+        **Data Sources:**
+        - **RCSB PDB**: Experimental protein structures from X-ray crystallography, NMR, and cryo-EM
+        - **AlphaFold**: Predicted protein structures using deep learning (high confidence for most human proteins)
+        
+        **Supported ID Formats:**
+        - PDB ID: 4 characters (e.g., 1A3N, 2HYY, 3K5A)
+        - UniProt ID: 6 characters (e.g., P04637, Q9Y6K9, O00429)
+        """)
 
     with tabs[3]:
         mut_protein = st.text_input("Protein sequence for mutation impact", value="MKTFVVLLLCTFTVVSA", key="module6_mut_protein")
