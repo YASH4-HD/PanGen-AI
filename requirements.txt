@@ -9,3 +9,6 @@ plotly
 matplotlib
 networkx
 scikit-learn
+stmol
+py3Dmol
+requests
