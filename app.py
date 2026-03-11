@@ -2391,11 +2391,30 @@ elif page == "Module 8: Genome Browser / Multi-Track Visualization":
             # Create track data
             track_data = create_genome_browser_tracks(display_seq)
             
-            # Create the genome browser figure
-            fig = create_genome_browser_figure(track_data)
+            # Debug: Check track data
+            st.write("Debug: Track data keys:", list(track_data.keys()))
+            st.write("Debug: Sequence length:", len(display_seq))
+            st.write("Debug: DNA track sample:", track_data['dna_sequence'][:10])
             
-            # Display the genome browser
-            st.plotly_chart(fig, use_container_width=True)
+            # Create the genome browser figure
+            try:
+                fig = create_genome_browser_figure(track_data)
+                
+                # Debug: Check figure
+                st.write("Debug: Figure created successfully")
+                st.write("Debug: Number of traces:", len(fig.data))
+                
+                # Display the genome browser
+                st.plotly_chart(fig, use_container_width=True)
+                
+            except Exception as e:
+                st.error(f"Error creating figure: {str(e)}")
+                st.write("Debug: Track data shape info:")
+                for key, value in track_data.items():
+                    if hasattr(value, '__len__'):
+                        st.write(f"{key}: length {len(value)}")
+                    else:
+                        st.write(f"{key}: {type(value)}")
             
             # Additional information
             st.markdown("### Track Information")
