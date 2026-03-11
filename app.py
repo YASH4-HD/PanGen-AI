@@ -2403,8 +2403,22 @@ elif page == "Module 8: Genome Browser / Multi-Track Visualization":
             # Create track data
             track_data = create_genome_browser_tracks(display_seq)
             
+            # Test with a simple figure first
+            st.write("Testing basic Plotly figure...")
+            test_fig = go.Figure(data=go.Scatter(x=[1, 2, 3], y=[4, 5, 6], mode='markers'))
+            test_fig.update_layout(title="Test Figure", height=300)
+            st.plotly_chart(test_fig, use_container_width=True)
+            
+            st.write("Testing genome browser figure...")
             # Create the genome browser figure
             fig = create_genome_browser_figure(track_data)
+            
+            # Debug: Check figure properties
+            st.write(f"Figure type: {type(fig)}")
+            st.write(f"Figure data length: {len(fig.data) if fig.data else 0}")
+            if fig.data:
+                for i, trace in enumerate(fig.data):
+                    st.write(f"Trace {i}: {type(trace)}")
             
             # Display the genome browser
             st.plotly_chart(fig, use_container_width=True)
