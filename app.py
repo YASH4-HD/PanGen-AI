@@ -555,6 +555,93 @@ def analyze_protein_properties(protein: str):
     }, comp
 
 
+# BLOSUM62 substitution scores for mutation-impact heuristics
+BLOSUM62 = {
+    "A": {"A": 4, "R": -1, "N": -2, "D": -2, "C": 0, "Q": -1, "E": -1, "G": 0, "H": -2, "I": -1, "L": -1, "K": -1, "M": -1, "F": -2, "P": -1, "S": 1, "T": 0, "W": -3, "Y": -2, "V": 0},
+    "R": {"A": -1, "R": 5, "N": 0, "D": -2, "C": -3, "Q": 1, "E": 0, "G": -2, "H": 0, "I": -3, "L": -2, "K": 2, "M": -1, "F": -3, "P": -2, "S": -1, "T": -1, "W": -3, "Y": -2, "V": -3},
+    "N": {"A": -2, "R": 0, "N": 6, "D": 1, "C": -3, "Q": 0, "E": 0, "G": 0, "H": 1, "I": -3, "L": -3, "K": 0, "M": -2, "F": -3, "P": -2, "S": 1, "T": 0, "W": -4, "Y": -2, "V": -3},
+    "D": {"A": -2, "R": -2, "N": 1, "D": 6, "C": -3, "Q": 0, "E": 2, "G": -1, "H": -1, "I": -3, "L": -4, "K": -1, "M": -3, "F": -3, "P": -1, "S": 0, "T": -1, "W": -4, "Y": -3, "V": -3},
+    "C": {"A": 0, "R": -3, "N": -3, "D": -3, "C": 9, "Q": -3, "E": -4, "G": -3, "H": -3, "I": -1, "L": -1, "K": -3, "M": -1, "F": -2, "P": -3, "S": -1, "T": -1, "W": -2, "Y": -2, "V": -1},
+    "Q": {"A": -1, "R": 1, "N": 0, "D": 0, "C": -3, "Q": 5, "E": 2, "G": -2, "H": 0, "I": -3, "L": -2, "K": 1, "M": 0, "F": -3, "P": -1, "S": 0, "T": -1, "W": -2, "Y": -1, "V": -2},
+    "E": {"A": -1, "R": 0, "N": 0, "D": 2, "C": -4, "Q": 2, "E": 5, "G": -2, "H": 0, "I": -3, "L": -3, "K": 1, "M": -2, "F": -3, "P": -1, "S": 0, "T": -1, "W": -3, "Y": -2, "V": -2},
+    "G": {"A": 0, "R": -2, "N": 0, "D": -1, "C": -3, "Q": -2, "E": -2, "G": 6, "H": -2, "I": -4, "L": -4, "K": -2, "M": -3, "F": -3, "P": -2, "S": 0, "T": -2, "W": -2, "Y": -3, "V": -3},
+    "H": {"A": -2, "R": 0, "N": 1, "D": -1, "C": -3, "Q": 0, "E": 0, "G": -2, "H": 8, "I": -3, "L": -3, "K": -1, "M": -2, "F": -1, "P": -2, "S": -1, "T": -2, "W": -2, "Y": 2, "V": -3},
+    "I": {"A": -1, "R": -3, "N": -3, "D": -3, "C": -1, "Q": -3, "E": -3, "G": -4, "H": -3, "I": 4, "L": 2, "K": -3, "M": 1, "F": 0, "P": -3, "S": -2, "T": -1, "W": -3, "Y": -1, "V": 3},
+    "L": {"A": -1, "R": -2, "N": -3, "D": -4, "C": -1, "Q": -2, "E": -3, "G": -4, "H": -3, "I": 2, "L": 4, "K": -2, "M": 2, "F": 0, "P": -3, "S": -2, "T": -1, "W": -2, "Y": -1, "V": 1},
+    "K": {"A": -1, "R": 2, "N": 0, "D": -1, "C": -3, "Q": 1, "E": 1, "G": -2, "H": -1, "I": -3, "L": -2, "K": 5, "M": -1, "F": -3, "P": -1, "S": 0, "T": -1, "W": -3, "Y": -2, "V": -2},
+    "M": {"A": -1, "R": -1, "N": -2, "D": -3, "C": -1, "Q": 0, "E": -2, "G": -3, "H": -2, "I": 1, "L": 2, "K": -1, "M": 5, "F": 0, "P": -2, "S": -1, "T": -1, "W": -1, "Y": -1, "V": 1},
+    "F": {"A": -2, "R": -3, "N": -3, "D": -3, "C": -2, "Q": -3, "E": -3, "G": -3, "H": -1, "I": 0, "L": 0, "K": -3, "M": 0, "F": 6, "P": -4, "S": -2, "T": -2, "W": 1, "Y": 3, "V": -1},
+    "P": {"A": -1, "R": -2, "N": -2, "D": -1, "C": -3, "Q": -1, "E": -1, "G": -2, "H": -2, "I": -3, "L": -3, "K": -1, "M": -2, "F": -4, "P": 7, "S": -1, "T": -1, "W": -4, "Y": -3, "V": -2},
+    "S": {"A": 1, "R": -1, "N": 1, "D": 0, "C": -1, "Q": 0, "E": 0, "G": 0, "H": -1, "I": -2, "L": -2, "K": 0, "M": -1, "F": -2, "P": -1, "S": 4, "T": 1, "W": -3, "Y": -2, "V": -2},
+    "T": {"A": 0, "R": -1, "N": 0, "D": -1, "C": -1, "Q": -1, "E": -1, "G": -2, "H": -2, "I": -1, "L": -1, "K": -1, "M": -1, "F": -2, "P": -1, "S": 1, "T": 5, "W": -2, "Y": -2, "V": 0},
+    "W": {"A": -3, "R": -3, "N": -4, "D": -4, "C": -2, "Q": -2, "E": -3, "G": -2, "H": -2, "I": -3, "L": -2, "K": -3, "M": -1, "F": 1, "P": -4, "S": -3, "T": -2, "W": 11, "Y": 2, "V": -3},
+    "Y": {"A": -2, "R": -2, "N": -2, "D": -3, "C": -2, "Q": -1, "E": -2, "G": -3, "H": 2, "I": -1, "L": -1, "K": -2, "M": -1, "F": 3, "P": -3, "S": -2, "T": -2, "W": 2, "Y": 7, "V": -1},
+    "V": {"A": 0, "R": -3, "N": -3, "D": -3, "C": -1, "Q": -2, "E": -2, "G": -3, "H": -3, "I": 3, "L": 1, "K": -2, "M": 1, "F": -1, "P": -2, "S": -2, "T": 0, "W": -3, "Y": -1, "V": 4},
+}
+
+PROTEIN_AA_ORDER = list("ACDEFGHIKLMNPQRSTVWY")
+
+
+def parse_mutation_notation(mutation: str):
+    m = mutation.strip().upper()
+    if len(m) < 3:
+        return None
+    ref = m[0]
+    alt = m[-1]
+    pos_txt = m[1:-1]
+    if not pos_txt.isdigit():
+        return None
+    return ref, int(pos_txt), alt
+
+
+def predict_protein_mutation_impact(protein_sequence: str, mutation: str):
+    seq = protein_sequence.strip().upper()
+    parsed = parse_mutation_notation(mutation)
+    if parsed is None:
+        return {"error": "Mutation must be in format like F5L."}
+
+    ref, pos, alt = parsed
+    if pos < 1 or pos > len(seq):
+        return {"error": f"Position out of range (1-{len(seq)})."}
+    if ref not in BLOSUM62 or alt not in BLOSUM62:
+        return {"error": "Only standard amino acids are supported."}
+
+    observed = seq[pos - 1]
+    if observed != ref:
+        return {"error": f"Reference mismatch at position {pos}: sequence has {observed}, not {ref}."}
+
+    score = BLOSUM62[ref][alt]
+    conservation = round((score + 4) / 15, 3)
+    if score <= -3:
+        impact = "High"
+    elif score < 0:
+        impact = "Medium"
+    else:
+        impact = "Low"
+
+    return {
+        "Position": pos,
+        "OriginalAA": ref,
+        "MutatedAA": alt,
+        "BLOSUM62Score": score,
+        "ConservationScore": conservation,
+        "PredictedImpact": impact,
+    }
+
+
+def build_protein_mutation_landscape(protein_sequence: str):
+    seq = protein_sequence.strip().upper()
+    valid_positions = [aa for aa in seq if aa in BLOSUM62]
+    if not valid_positions:
+        return PROTEIN_AA_ORDER, np.zeros((len(PROTEIN_AA_ORDER), 0), dtype=float)
+
+    matrix = np.zeros((len(PROTEIN_AA_ORDER), len(valid_positions)), dtype=float)
+    for j, ref in enumerate(valid_positions):
+        for i, alt in enumerate(PROTEIN_AA_ORDER):
+            matrix[i, j] = BLOSUM62[ref][alt]
+    return PROTEIN_AA_ORDER, matrix
+
+
 # -----------------------------
 # Streamlit UI
 # -----------------------------
@@ -570,7 +657,7 @@ page = st.sidebar.radio(
         "Module 3: Geno-Compressor (BWT)",
         "Module 4: CRISPR Guide Designer",
         "Module 5: Genome Alignment Explorer",
-        "Module 6: Protein Analysis & Structure Explorer",
+        "Module 6: Protein Analysis & Mutation Impact",
     ],
 )
 
@@ -630,7 +717,7 @@ if page == "Home - Overview":
 - Module 3: BWT + FM-index search with step trace and match highlighting
 - Module 4: CRISPR guide design + NGG PAM scan + off-target proxy scoring
 - Module 5: Needleman-Wunsch read mapping + mismatch highlighting + alignment score
-- Module 6: DNA→protein translation + protein properties + AlphaFold structure links
+- Module 6: DNA→protein translation + property analysis + AlphaFold + mutation impact
 """
     )
     st.code(
@@ -648,7 +735,9 @@ CRISPR Guide Designer (NGG)
   ↓
 Genome Alignment Explorer
   ↓
-Protein Analysis & Structure Explorer
+Protein Analysis & Mutation Impact
+  ↓
+Protein Mutation Impact
   ↓
 Visualization + Export
 """,
@@ -728,6 +817,7 @@ Protein (Module 6)
 Translated length: {protein_stats['Length']} aa
 Molecular weight: {protein_stats['MolecularWeight_kDa']} kDa
 Hydrophobic residues: {protein_stats['HydrophobicPct']}%
+Protein mutation impact stage: enabled
 """,
                 language="text",
             )
@@ -1332,13 +1422,19 @@ Visualizes alignment with mismatch highlighting and alignment scoring.
             )
             add_export_artifact("alignment_results.csv", csv_bytes)
 
-elif page == "Module 6: Protein Analysis & Structure Explorer":
-    st.title("Module 6: Protein Analysis & Structure Explorer")
+elif page == "Module 6: Protein Analysis & Mutation Impact":
+    st.title("Module 6: Protein Analysis & Mutation Impact")
     st.markdown("""
-Translate DNA to protein, compute basic protein properties, and open AlphaFold structure entries.
+DNA→protein translation, protein properties, AlphaFold lookup, and a BLOSUM62-based mutation impact predictor.
 """)
 
-    tabs = st.tabs(["DNA → Protein Translation", "Protein Property Analyzer", "AlphaFold Structure Viewer"])
+    tabs = st.tabs([
+        "DNA → Protein Translation",
+        "Protein Property Analyzer",
+        "AlphaFold Structure Viewer",
+        "Protein Mutation Impact Predictor",
+        "Protein Mutation Landscape",
+    ])
 
     with tabs[0]:
         if "module6_dna" not in st.session_state:
@@ -1361,7 +1457,7 @@ Translate DNA to protein, compute basic protein properties, and open AlphaFold s
     with tabs[1]:
         protein_seq = st.text_area(
             "Protein sequence",
-            value=st.session_state.get("module6_protein", "MAIVMGR*KGAR*"),
+            value=st.session_state.get("module6_protein", "MAIVMGRKGAR"),
             key="module6_protein_input",
             height=110,
         )
@@ -1378,3 +1474,59 @@ Translate DNA to protein, compute basic protein properties, and open AlphaFold s
         alphafold_url = f"https://alphafold.ebi.ac.uk/entry/{uniprot_id.strip()}"
         st.link_button("Open AlphaFold Entry", alphafold_url)
         st.caption("Tip: Use UniProt IDs like P04637 (p53), Q9Y6K9, or P38398.")
+
+    with tabs[3]:
+        mut_protein = st.text_input("Protein sequence for mutation impact", value="MKTFVVLLLCTFTVVSA", key="module6_mut_protein")
+        mutation = st.text_input("Mutation notation (e.g., F5L)", value="F5L", key="module6_mutation")
+
+        if st.button("Predict Mutation Impact", key="module6_mut_predict"):
+            result = predict_protein_mutation_impact(mut_protein, mutation)
+            if "error" in result:
+                st.error(result["error"])
+            else:
+                st.success("Mutation impact analysis complete.")
+                st.code(
+                    f"""Mutation Impact Analysis
+
+Position: {result['Position']}
+Original AA: {result['OriginalAA']}
+Mutated AA: {result['MutatedAA']}
+
+BLOSUM62 score: {result['BLOSUM62Score']}
+Conservation score: {result['ConservationScore']}
+Predicted impact: {result['PredictedImpact']}
+""",
+                    language="text",
+                )
+
+    with tabs[4]:
+        landscape_protein = st.text_input(
+            "Protein sequence for mutation landscape",
+            value=st.session_state.get("module6_protein", "MAIVMGRKGAR"),
+            key="module6_landscape_protein",
+        )
+        if st.button("Generate Mutation Landscape", key="module6_landscape_btn"):
+            aa_order, matrix = build_protein_mutation_landscape(landscape_protein)
+            if matrix.shape[1] == 0:
+                st.warning("Please provide a valid protein sequence with standard amino acids.")
+            else:
+                fig, ax = plt.subplots(figsize=(12, 4.8))
+                im = ax.imshow(matrix, cmap="coolwarm", aspect="auto", vmin=-4, vmax=11)
+                ax.set_yticks(range(len(aa_order)))
+                ax.set_yticklabels(aa_order)
+                ax.set_xlabel("Protein Position")
+                ax.set_ylabel("Mutated Amino Acid")
+                ax.set_title("Protein Mutation Impact Landscape (BLOSUM62)")
+                cbar = plt.colorbar(im, ax=ax)
+                cbar.set_label("BLOSUM62 Score")
+                st.pyplot(fig)
+                landscape_png = fig_to_png_bytes(fig)
+                st.download_button(
+                    "Download Mutation Landscape (PNG)",
+                    data=landscape_png,
+                    file_name="protein_mutation_landscape.png",
+                    mime="image/png",
+                    key="module6_landscape_png_download",
+                )
+                add_export_artifact("protein_mutation_landscape.png", landscape_png)
+                plt.close(fig)
