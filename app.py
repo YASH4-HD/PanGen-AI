@@ -638,7 +638,6 @@ Nodes represent unique k-mers and directed edges represent adjacency relationshi
                 cax.set_title("Per-position Conservation")
                 cax.grid(alpha=0.3)
                 st.pyplot(cfig)
-                plt.close(cfig)
 
                 st.dataframe(conservation_df, use_container_width=True)
                 conservation_csv = conservation_df.to_csv(index=False).encode("utf-8")
@@ -658,6 +657,7 @@ Nodes represent unique k-mers and directed edges represent adjacency relationshi
                     mime="image/png",
                 )
                 add_export_artifact("conservation_plot.png", conservation_png)
+                plt.close(cfig)
 
             st.caption(f"Analysis completed in {time.time() - start_time:.2f} seconds")
 
