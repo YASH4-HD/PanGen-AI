@@ -648,6 +648,23 @@ def build_protein_mutation_landscape(protein_sequence: str):
 # -----------------------------
 # Protein Structure Viewer Functions
 # -----------------------------
+def update_protein_id_from_example():
+    """Callback function to update protein ID when example is selected."""
+    example_proteins = {
+        "p53 (Tumor suppressor)": "P04637",
+        "Hemoglobin": "1A3N", 
+        "Lysozyme": "1AKI",
+        "DNA Polymerase": "3K5A",
+        "Insulin": "1ZNJ",
+        "Myoglobin": "1MBO",
+        "Carbonic Anhydrase": "2CBA"
+    }
+    
+    selected_example = st.session_state.get("module6_example_protein", "None")
+    if selected_example != "None" and selected_example in example_proteins:
+        st.session_state.module6_structure_id = example_proteins[selected_example]
+
+
 def fetch_pdb_data(pdb_id: str):
     """Fetch PDB data from RCSB or AlphaFold database."""
     pdb_id = pdb_id.upper().strip()
@@ -1738,13 +1755,9 @@ DNA→protein translation, protein properties, AlphaFold lookup, and a BLOSUM62-
             selected_example = st.selectbox(
                 "Select an example protein:",
                 ["None"] + list(example_proteins.keys()),
-                key="module6_example_protein"
+                key="module6_example_protein",
+                on_change=update_protein_id_from_example
             )
-            
-            if selected_example != "None":
-                protein_id = example_proteins[selected_example]
-                st.session_state.module6_structure_id = protein_id
-                st.rerun()
         
         if st.button("Fetch and Visualize Structure", key="module6_fetch_structure"):
             if not protein_id.strip():
