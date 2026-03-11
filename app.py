@@ -890,12 +890,14 @@ def create_genome_browser_figure(track_data: dict):
         hovertemplate='Position: %{x}<br>Coding Region: %{z}<extra></extra>'
     ))
     
-    # Update layout with fixed height and simplified settings
+    # Ensure enough vertical space so all 5 tracks are visible
+    track_count = 5
+    fig_height = max(800, 150 * track_count)
     fig.update_layout(
         title="Genome Browser - Multi-Track Visualization",
-        height=500,  # Fixed reasonable height
-        width=None,   # Let Streamlit control width
-        margin=dict(l=50, r=50, t=50, b=50),  # Reasonable margins
+        height=fig_height,
+        width=None,  # Let Streamlit control width
+        margin=dict(l=80, r=40, t=60, b=60),
         showlegend=False,
         hovermode='closest'
     )
@@ -912,7 +914,9 @@ def create_genome_browser_figure(track_data: dict):
         title_text="",
         showgrid=False,
         categoryorder='array',
-        categoryarray=["DNA Sequence", "Variant Impact", "CRISPR Guides", "Gene Annotation", "Protein Coding"]
+        categoryarray=["DNA Sequence", "Variant Impact", "CRISPR Guides", "Gene Annotation", "Protein Coding"],
+        automargin=True,
+        tickfont=dict(size=12)
     )
     
     return fig
