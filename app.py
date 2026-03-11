@@ -1913,6 +1913,15 @@ Predicted impact: {result['PredictedImpact']}
                 cbar = plt.colorbar(im, ax=ax)
                 cbar.set_label("BLOSUM62 Score")
                 st.pyplot(fig)
+                
+                # Add explanation for score interpretation
+                st.markdown("""
+                **Score Interpretation:**
+                - **Positive scores** (red): Conservative mutations - amino acids are similar, likely tolerated
+                - **Negative scores** (blue): Damaging mutations - amino acids are different, likely deleterious
+                - **Higher scores** indicate more conservative substitutions, **lower scores** indicate more radical changes
+                """)
+                
                 landscape_png = fig_to_png_bytes(fig)
                 st.download_button(
                     "Download Mutation Landscape (PNG)",
