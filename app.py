@@ -643,6 +643,146 @@ def build_protein_mutation_landscape(protein_sequence: str):
 
 
 # -----------------------------
+# Module 7 (Genome Annotation Explorer)
+# -----------------------------
+def parse_genome_annotations(annotation_text: str):
+    """Parse genome annotation data from text input."""
+    annotations = []
+    lines = annotation_text.strip().split('\n')
+    
+    for line in lines:
+        if not line.strip():
+            continue
+        
+        parts = line.strip().split('\t')
+        if len(parts) >= 3:
+            try:
+                start = int(parts[0]) - 1  # Convert to 0-based
+                end = int(parts[1])
+                feature_type = parts[2]
+                description = parts[3] if len(parts) > 3 else ""
+                
+                annotations.append({
+                    'start': start,
+                    'end': end,
+                    'type': feature_type,
+                    'description': description,
+                    'y_position': len(annotations)  # Stack annotations vertically
+                })
+            except ValueError:
+                continue
+    
+    return annotations
+
+
+def create_genome_annotation_viewer(sequence: str, annotations: list):
+    """Create interactive genome annotation viewer using Plotly."""
+    fig = go.Figure()
+    
+    # Add sequence as background track
+    seq_length = len(sequence)
+    fig.add_shape(
+        type="rect",
+        x0=0, x1=seq_length,
+        y0=-0.5, y1=0.5,
+        fillcolor="lightgray",
+        line=dict(color="gray", width=1)
+    )
+    
+    # Add annotations as colored tracks
+    colors = {
+        'Gene': '#1f77b4',
+        'Exon': '#ff7f0e', 
+        'Promoter': '#2ca02c',
+        'Regulatory': '#d62728',
+        'SNP': '#9467bd',
+        'CRISPR': '#8c564b',
+        'Variant': '#e377c2'
+    }
+    
+    for i, annotation in enumerate(annotations):
+        color = colors.get(annotation['type'], '#7f7f7f')
+        
+        # Add annotation track
+        fig.add_shape(
+            type="rect",
+            x0=annotation['start'], x1=annotation['end'],
+            y0=annotation['y_position'] + 0.5, 
+            y1=annotation['y_position'] + 1.5,
+            fillcolor=color,
+            line=dict(color=color, width=1),
+            opacity=0.7
+        )
+        
+        # Add annotation label
+        fig.add_annotation(
+            x=(annotation['start'] + annotation['end']) / 2,
+            y=annotation['y_position'] + 1,
+            text=f"{annotation['type']}: {annotation['description']}",
+            showarrow=False,
+            font=dict(size=10),
+            textangle=0
+        )
+    
+    # Add position markers
+    position_step = max(1, seq_length // 10)
+    positions = list(range(0, seq_length + 1, position_step))
+    
+    fig.update_xaxes(
+        title="Genomic Position",
+        tickmode='array',
+        tickvals=positions,
+        ticktext=[str(p + 1) for p in positions],  # Convert to 1-based for display
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='lightgray'
+    )
+    
+    fig.update_yaxes(
+        title="Annotation Tracks",
+        showgrid=False,
+        zeroline=False,
+        showticklabels=False
+    )
+    
+    fig.update_layout(
+        title="Genome Annotation Viewer",
+        height=400,
+        showlegend=False,
+        hovermode='closest',
+        margin=dict(l=50, r=50, t=50, b=50)
+    )
+    
+    return fig
+
+
+def generate_sample_annotations(sequence_length: int):
+    """Generate sample annotations for demonstration."""
+    sample_annotations = [
+        "1\t100\tGene\tSample Gene 1",
+        "20\t40\tExon\tExon 1", 
+        "60\t80\tExon\tExon 2",
+        "1\t20\tPromoter\tPromoter Region",
+        "101\t150\tGene\tSample Gene 2",
+        "110\t130\tExon\tExon 3",
+        "140\t148\tExon\tExon 4",
+        "101\t120\tPromoter\tPromoter Region 2",
+        "50\t50\tSNP\tVariant at position 50",
+        "75\t75\tSNP\tVariant at position 75",
+        "125\t125\tSNP\tVariant at position 125"
+    ]
+    
+    # Filter annotations to fit within sequence length
+    filtered = []
+    for line in sample_annotations:
+        parts = line.split('\t')
+        if int(parts[1]) <= sequence_length:
+            filtered.append(line)
+    
+    return '\n'.join(filtered)
+
+
+# -----------------------------
 # Streamlit UI
 # -----------------------------
 st.set_page_config(page_title="PanGen-AI Suite | Computational Genomics", page_icon="🧬", layout="wide")
@@ -658,6 +798,7 @@ page = st.sidebar.radio(
         "Module 4: CRISPR Guide Designer",
         "Module 5: Genome Alignment Explorer",
         "Module 6: Protein Analysis & Mutation Impact",
+        "Module 7: Genome Annotation Explorer",
     ],
 )
 
@@ -706,7 +847,7 @@ if page == "Home - Overview":
     )
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Active Modules", "6", "Pangenome + DeepNCV + FM-index + CRISPR + Alignment + Protein")
+    c1.metric("Active Modules", "7", "Pangenome + DeepNCV + FM-index + CRISPR + Alignment + Protein + Annotation")
     c2.metric("Built-in Demo Datasets", "6", "Biologically grounded examples")
     c3.metric("Export Artifacts in Session", str(len(st.session_state.get('export_artifacts', {}))), "Ready for ZIP")
 
@@ -718,6 +859,7 @@ if page == "Home - Overview":
 - Module 4: CRISPR guide design + NGG PAM scan + off-target proxy scoring
 - Module 5: Needleman-Wunsch read mapping + mismatch highlighting + alignment score
 - Module 6: DNA→protein translation + property analysis + AlphaFold + mutation impact
+- Module 7: Genome annotation viewer + multi-track overlay + integration with other modules
 """
     )
     st.code(
@@ -737,7 +879,7 @@ Genome Alignment Explorer
   ↓
 Protein Analysis & Mutation Impact
   ↓
-Protein Mutation Impact
+Genome Annotation Explorer
   ↓
 Visualization + Export
 """,
@@ -1530,3 +1672,225 @@ Predicted impact: {result['PredictedImpact']}
                 )
                 add_export_artifact("protein_mutation_landscape.png", landscape_png)
                 plt.close(fig)
+
+elif page == "Module 7: Genome Annotation Explorer":
+    st.title("Module 7: Genome Annotation Explorer")
+    st.subheader("Interactive Genome Annotation Visualization")
+    st.markdown("""
+    This module provides an interactive viewer for genome annotations, allowing you to overlay multiple 
+    annotation types (genes, exons, promoters, regulatory regions, SNPs, CRISPR sites) on a DNA sequence.
+    The viewer displays annotations as colored tracks with position-based coordinates.
+    """)
+    
+    with st.expander("Method / Algorithm"):
+        st.markdown("""
+        **Method**
+        The genome annotation viewer parses tab-delimited annotation data and renders it as interactive 
+        tracks using Plotly. Each annotation type is assigned a unique color and displayed at different 
+        vertical levels to avoid overlap. The viewer supports zooming, panning, and hover interactions.
+        
+        **Annotation Format**: `Start\tEnd\tType\tDescription`
+        - Start/End: 1-based genomic positions
+        - Type: Gene, Exon, Promoter, Regulatory, SNP, CRISPR, Variant
+        - Description: Optional annotation description
+        """)
+    
+    with st.expander("Use Case / Applications"):
+        st.markdown("""
+        **Applications**
+        - Visualizing gene structures and exon-intron organization
+        - Overlaying multiple annotation types on genomic regions
+        - Identifying regulatory elements and variant hotspots
+        - Integrating CRISPR target sites with gene annotations
+        - Exploring SNP distributions across genomic features
+        """)
+    
+    # Input section
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        sequence_input = st.text_area(
+            "Enter DNA Sequence:",
+            value="ATGCGTACGATCGATCGATCGTAGCTAGCTAGCGATCGATCGATCGTAGCTAG",
+            key="module7_sequence",
+            height=100,
+            help="Enter the DNA sequence to annotate"
+        )
+    
+    with col2:
+        st.markdown("**Sequence Info**")
+        if sequence_input:
+            clean_seq = sanitize_dna_sequence(sequence_input)
+            st.write(f"Length: {len(clean_seq)} bp")
+            st.write(f"GC Content: {100 * (clean_seq.count('G') + clean_seq.count('C')) / len(clean_seq):.1f}%")
+    
+    # Annotation input
+    st.markdown("### Genome Annotations")
+    st.markdown("**Format**: Start(1-based) → End → Type → Description (tab-separated)")
+    
+    col1, col2 = st.columns([3, 1])
+    
+    with col2:
+        if st.button("Load Sample Annotations", key="module7_sample_btn"):
+            clean_seq = sanitize_dna_sequence(sequence_input)
+            if clean_seq:
+                sample_ann = generate_sample_annotations(len(clean_seq))
+                st.session_state.module7_annotations = sample_ann
+                st.success("Sample annotations loaded!")
+                st.rerun()
+    
+    with col1:
+        annotation_input = st.text_area(
+            "Enter Annotations (one per line):",
+            value=st.session_state.get("module7_annotations", ""),
+            key="module7_annotation_input",
+            height=150,
+            help="Example: 1\t100\tGene\tSample Gene"
+        )
+    
+    # Display annotation format example
+    with st.expander("Annotation Format Examples"):
+        st.code("""
+# Gene annotation
+1	100	Gene	Sample Gene 1
+20	40	Exon	Exon 1
+60	80	Exon	Exon 2
+1	20	Promoter	Promoter Region
+
+# Variant annotations
+50	50	SNP	Variant at position 50
+75	75	SNP	Variant at position 75
+
+# CRISPR sites
+30	49	CRISPR	CRISPR target site
+        """, language="text")
+    
+    # Generate visualization
+    if st.button("Generate Annotation Viewer", key="module7_generate_btn"):
+        clean_seq = sanitize_dna_sequence(sequence_input)
+        
+        if not clean_seq:
+            st.error("Please enter a valid DNA sequence.")
+        elif not annotation_input.strip():
+            st.error("Please enter annotation data or load sample annotations.")
+        else:
+            with st.spinner("Parsing annotations and generating visualization..."):
+                # Parse annotations
+                annotations = parse_genome_annotations(annotation_input)
+                
+                if not annotations:
+                    st.warning("No valid annotations found. Please check the format.")
+                else:
+                    # Create visualization
+                    fig = create_genome_annotation_viewer(clean_seq, annotations)
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Display annotation summary
+                    st.markdown("### Annotation Summary")
+                    summary_data = {}
+                    for ann in annotations:
+                        ann_type = ann['type']
+                        summary_data[ann_type] = summary_data.get(ann_type, 0) + 1
+                    
+                    summary_df = pd.DataFrame([
+                        {"Type": k, "Count": v} for k, v in summary_data.items()
+                    ])
+                    st.dataframe(summary_df, use_container_width=True)
+                    
+                    # Export options
+                    st.markdown("### Export Options")
+                    
+                    # Export annotation data
+                    annotation_csv = "Start\tEnd\tType\tDescription\n" + annotation_input
+                    st.download_button(
+                        "Download Annotations (TSV)",
+                        data=annotation_csv,
+                        file_name="genome_annotations.tsv",
+                        mime="text/tab-separated-values",
+                        key="module7_annotation_download"
+                    )
+                    
+                    # Add to export artifacts
+                    add_export_artifact("genome_annotations.tsv", annotation_csv.encode('utf-8'))
+    
+    # Integration with other modules
+    st.markdown("---")
+    st.markdown("### Integration with Other Modules")
+    st.markdown("""
+    The Genome Annotation Explorer can integrate with other PanGen-AI modules:
+    
+    - **Module 1**: Use pangenome graph results to identify conserved regions for annotation
+    - **Module 2**: Overlay variant impact predictions on gene annotations  
+    - **Module 4**: Display CRISPR guide sites in the context of gene features
+    - **Module 5**: Show alignment results alongside annotated regions
+    - **Module 6**: Connect protein-coding regions to translation analysis
+    """)
+    
+    # Quick integration buttons
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("Import CRISPR Sites from Module 4", key="module7_import_crispr"):
+            clean_seq = sanitize_dna_sequence(sequence_input)
+            if clean_seq:
+                guides_df = find_crispr_guides(clean_seq)
+                if not guides_df.empty:
+                    crispr_annotations = []
+                    for _, row in guides_df.iterrows():
+                        start = row['Position'] + 1  # Convert to 1-based
+                        end = start + 19  # 20bp guide
+                        crispr_annotations.append(f"{start}\t{end}\tCRISPR\tGuide: {row['Guide RNA']}")
+                    
+                    st.session_state.module7_annotations = "\n".join(crispr_annotations)
+                    st.success(f"Imported {len(crispr_annotations)} CRISPR sites!")
+                    st.rerun()
+                else:
+                    st.warning("No CRISPR sites found in the sequence.")
+    
+    with col2:
+        if st.button("Import Variants from Module 2", key="module7_import_variants"):
+            clean_seq = sanitize_dna_sequence(sequence_input)
+            if clean_seq and len(clean_seq) >= 10:
+                baseline, scan_df = mutation_scan(clean_seq[:min(90, len(clean_seq))])
+                # Get high-impact variants
+                high_impact = scan_df[scan_df['DeltaVsBaseline'].abs() > 0.1]
+                if not high_impact.empty:
+                    variant_annotations = []
+                    for _, row in high_impact.iterrows():
+                        pos = row['Position']
+                        variant_annotations.append(f"{pos}\t{pos}\tSNP\t{row['Ref']}→{row['Alt']} (Δ={row['DeltaVsBaseline']:.3f})")
+                    
+                    st.session_state.module7_annotations = "\n".join(variant_annotations)
+                    st.success(f"Imported {len(variant_annotations)} high-impact variants!")
+                    st.rerun()
+                else:
+                    st.warning("No high-impact variants found.")
+    
+    with col3:
+        if st.button("Generate Gene Annotations", key="module7_generate_genes"):
+            clean_seq = sanitize_dna_sequence(sequence_input)
+            if clean_seq and len(clean_seq) >= 50:
+                # Generate simple gene annotations
+                gene_annotations = []
+                seq_len = len(clean_seq)
+                
+                # Add a few sample genes
+                gene1_end = min(seq_len, 100)
+                gene_annotations.append(f"1\t{gene1_end}\tGene\tAuto-generated Gene 1")
+                gene_annotations.append(f"1\t20\tPromoter\tPromoter 1")
+                gene_annotations.append(f"21\t50\tExon\tExon 1")
+                gene_annotations.append(f"51\t80\tExon\tExon 2")
+                
+                if seq_len > 120:
+                    gene2_start = 101
+                    gene2_end = min(seq_len, 200)
+                    gene_annotations.append(f"{gene2_start}\t{gene2_end}\tGene\tAuto-generated Gene 2")
+                    gene_annotations.append(f"{gene2_start}\t{gene2_start+19}\tPromoter\tPromoter 2")
+                    gene_annotations.append(f"{gene2_start+20}\t{gene2_start+40}\tExon\tExon 3")
+                    gene_annotations.append(f"{gene2_start+41}\t{gene2_start+60}\tExon\tExon 4")
+                
+                st.session_state.module7_annotations = "\n".join(gene_annotations)
+                st.success("Generated sample gene annotations!")
+                st.rerun()
+            else:
+                st.warning("Sequence too short for meaningful gene annotation (minimum 50 bp).")
