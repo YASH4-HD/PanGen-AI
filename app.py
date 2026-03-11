@@ -2391,7 +2391,6 @@ elif page == "Module 8: Genome Browser / Multi-Track Visualization":
     # Auto-generate genome browser if DNA sequence is present
     clean_seq = sanitize_dna_sequence(sequence_input)
    
-   
     if "module8_browser_data" not in st.session_state:
         st.session_state.module8_browser_data = None
 
@@ -2403,14 +2402,12 @@ elif page == "Module 8: Genome Browser / Multi-Track Visualization":
                 # Limit sequence length for visualization
                 display_seq = clean_seq[:track_length]
 
-                # Create track data and figure
+                # Create track data
                 track_data = create_genome_browser_tracks(display_seq)
-                fig = create_genome_browser_figure(track_data)
 
                 st.session_state.module8_browser_data = {
                     "display_seq": display_seq,
                     "track_data": track_data,
-                    "fig": fig,
                     "analysis_time": time.time() - start_time,
                 }
         elif clean_seq:
@@ -2424,7 +2421,7 @@ elif page == "Module 8: Genome Browser / Multi-Track Visualization":
     if browser_data:
         display_seq = browser_data["display_seq"]
         track_data = browser_data["track_data"]
-        fig = browser_data["fig"]
+        fig = create_genome_browser_figure(track_data)
 
         st.markdown("### Interactive Genome Browser")
         st.plotly_chart(fig, use_container_width=True)
