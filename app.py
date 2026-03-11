@@ -31,21 +31,21 @@ def parse_fasta_text(text: str):
    sequences = []
    current = []
 
-for raw_line in text.splitlines():
-line = raw_line.strip()
-if not line:
-continue
-if line.startswith(">"):
-if current:
-sequences.append(sanitize_dna_sequence("".join(current)))
-current = []
-else:
-current.append(line)
-
-if current:
-sequences.append(sanitize_dna_sequence("".join(current)))
-
-return [s for s in sequences if s]
+   for raw_line in text.splitlines():
+      line = raw_line.strip()
+      if not line:
+         continue
+      if line.startswith(">"):
+         if current:
+             sequences.append(sanitize_dna_sequence("".join(current)))
+             current = []
+      else:
+         current.append(line)
+      
+      if current:
+           sequences.append(sanitize_dna_sequence("".join(current)))
+      
+      return [s for s in sequences if s]
 
 
 # Curated demo datasets
