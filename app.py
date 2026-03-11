@@ -57,29 +57,29 @@ DATASET_TRANSLATION_DNA = "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG"
 
 
 def fig_to_png_bytes(fig):
-buffer = io.BytesIO()
-fig.savefig(buffer, format="png", dpi=300, bbox_inches="tight")
-buffer.seek(0)
-return buffer.getvalue()
+   buffer = io.BytesIO()
+   fig.savefig(buffer, format="png", dpi=300, bbox_inches="tight")
+   buffer.seek(0)
+   return buffer.getvalue()
 
 
 def add_export_artifact(filename: str, data: bytes):
-if "export_artifacts" not in st.session_state:
-st.session_state["export_artifacts"] = {}
-st.session_state["export_artifacts"][filename] = data
+   if "export_artifacts" not in st.session_state:
+   st.session_state["export_artifacts"] = {}
+   st.session_state["export_artifacts"][filename] = data
 
 
 def build_results_zip_bytes():
-artifacts = st.session_state.get("export_artifacts", {})
-if not artifacts:
-return None
-
-zip_buffer = io.BytesIO()
-with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-for name, data in artifacts.items():
-zf.writestr(name, data)
-zip_buffer.seek(0)
-return zip_buffer.getvalue()
+   artifacts = st.session_state.get("export_artifacts", {})
+   if not artifacts:
+   return None
+   
+   zip_buffer = io.BytesIO()
+   with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+   for name, data in artifacts.items():
+   zf.writestr(name, data)
+   zip_buffer.seek(0)
+   return zip_buffer.getvalue()
 
 
 # -----------------------------
