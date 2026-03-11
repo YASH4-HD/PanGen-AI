@@ -822,11 +822,25 @@ def create_genome_browser_tracks(dna_sequence: str):
 
 def create_genome_browser_figure(track_data: dict):
     """Create multi-track genome browser visualization using Plotly."""
-    fig = go.Figure()
-    
     positions = track_data['positions']
     
-    # Track 1: DNA Sequence
+    # Validate data
+    if not positions or len(positions) == 0:
+        # Create empty figure with message
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No data to display",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False,
+            font=dict(size=20)
+        )
+        fig.update_layout(height=400)
+        return fig
+    
+    # Create figure with proper layout first
+    fig = go.Figure()
+    
+    # Track 1: DNA Sequence - simplified
     fig.add_trace(go.Heatmap(
         z=[track_data['dna_sequence']],
         x=positions,
@@ -836,7 +850,7 @@ def create_genome_browser_figure(track_data: dict):
         hovertemplate='Position: %{x}<br>Base: %{z}<extra></extra>'
     ))
     
-    # Track 2: Variant Impact
+    # Track 2: Variant Impact - simplified
     fig.add_trace(go.Heatmap(
         z=[track_data['variant_impact']],
         x=positions,
@@ -846,7 +860,7 @@ def create_genome_browser_figure(track_data: dict):
         hovertemplate='Position: %{x}<br>Impact Score: %{z:.3f}<extra></extra>'
     ))
     
-    # Track 3: CRISPR Guides
+    # Track 3: CRISPR Guides - simplified
     fig.add_trace(go.Heatmap(
         z=[track_data['crispr_guides']],
         x=positions,
@@ -856,7 +870,7 @@ def create_genome_browser_figure(track_data: dict):
         hovertemplate='Position: %{x}<br>CRISPR Score: %{z:.2f}<extra></extra>'
     ))
     
-    # Track 4: Gene Annotation
+    # Track 4: Gene Annotation - simplified
     fig.add_trace(go.Heatmap(
         z=[track_data['gene_annotation']],
         x=positions,
@@ -866,7 +880,7 @@ def create_genome_browser_figure(track_data: dict):
         hovertemplate='Position: %{x}<br>Gene Region: %{z}<extra></extra>'
     ))
     
-    # Track 5: Protein Coding
+    # Track 5: Protein Coding - simplified
     fig.add_trace(go.Heatmap(
         z=[track_data['protein_coding']],
         x=positions,
@@ -876,31 +890,29 @@ def create_genome_browser_figure(track_data: dict):
         hovertemplate='Position: %{x}<br>Coding Region: %{z}<extra></extra>'
     ))
     
-    # Update layout for genome browser appearance
+    # Update layout with fixed height and simplified settings
     fig.update_layout(
         title="Genome Browser - Multi-Track Visualization",
-        height=300,
-        xaxis_title="Genomic Position",
-        yaxis_title="",
+        height=500,  # Fixed reasonable height
+        width=None,   # Let Streamlit control width
+        margin=dict(l=50, r=50, t=50, b=50),  # Reasonable margins
         showlegend=False,
         hovermode='closest'
     )
     
-    # Configure axes
+    # Simplified axis configuration
     fig.update_xaxes(
+        title_text="Genomic Position",
         showgrid=True,
         gridwidth=1,
-        gridcolor='lightgray',
-        tickmode='array',
-        tickvals=positions[::max(1, len(positions)//10)],  # Show ~10 ticks
-        ticktext=[str(p) for p in positions[::max(1, len(positions)//10)]]
+        gridcolor='lightgray'
     )
     
     fig.update_yaxes(
+        title_text="",
         showgrid=False,
-        tickmode='array',
-        tickvals=["DNA Sequence", "Variant Impact", "CRISPR Guides", "Gene Annotation", "Protein Coding"],
-        ticktext=["DNA Sequence", "Variant Impact", "CRISPR Guides", "Gene Annotation", "Protein Coding"]
+        categoryorder='array',
+        categoryarray=["DNA Sequence", "Variant Impact", "CRISPR Guides", "Gene Annotation", "Protein Coding"]
     )
     
     return fig
@@ -2391,30 +2403,11 @@ elif page == "Module 8: Genome Browser / Multi-Track Visualization":
             # Create track data
             track_data = create_genome_browser_tracks(display_seq)
             
-            # Debug: Check track data
-            st.write("Debug: Track data keys:", list(track_data.keys()))
-            st.write("Debug: Sequence length:", len(display_seq))
-            st.write("Debug: DNA track sample:", track_data['dna_sequence'][:10])
-            
             # Create the genome browser figure
-            try:
-                fig = create_genome_browser_figure(track_data)
-                
-                # Debug: Check figure
-                st.write("Debug: Figure created successfully")
-                st.write("Debug: Number of traces:", len(fig.data))
-                
-                # Display the genome browser
-                st.plotly_chart(fig, use_container_width=True)
-                
-            except Exception as e:
-                st.error(f"Error creating figure: {str(e)}")
-                st.write("Debug: Track data shape info:")
-                for key, value in track_data.items():
-                    if hasattr(value, '__len__'):
-                        st.write(f"{key}: length {len(value)}")
-                    else:
-                        st.write(f"{key}: {type(value)}")
+            fig = create_genome_browser_figure(track_data)
+            
+            # Display the genome browser
+            st.plotly_chart(fig, use_container_width=True)
             
             # Additional information
             st.markdown("### Track Information")
