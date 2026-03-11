@@ -49,6 +49,7 @@ DATASET_BACTERIAL_PANGENOME = "ATGCGTAC\nATGCGTGC\nATGCATAC\nATGCGTAC\nATGAGTAC"
 DATASET_BRCA1_PROMOTER = "ATGCGTACGATCGATCGATCGTAGCTAGCTAGCGATCGATCGATCGTAGCTAG"
 DATASET_SARS_COV2_FRAGMENT = "ATGTTTGTTTTTCTTGTTTTAATTGTTACCTTCTTTTAGAAGGTTCCGAAGGT"
 DATASET_BRCA1_EXON = "ATGGATTTATCTGCTCTTCGCGTTGAAGAAGTACAAAATGTCATTAATGCTAT"
+DATASET_TRANSLATION_DNA = "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG"
 
 
 def fig_to_png_bytes(fig):
@@ -414,6 +415,147 @@ def find_crispr_guides(sequence: str):
 
 
 # -----------------------------
+# Module 5 (Genome Alignment Explorer)
+# -----------------------------
+def needleman_wunsch_align(reference: str, query: str, match: int = 2, mismatch: int = -1, gap: int = -2):
+    reference = sanitize_dna_sequence(reference)
+    query = sanitize_dna_sequence(query)
+    n, m = len(reference), len(query)
+    if n == 0 or m == 0:
+        return "", "", 0
+
+    score = np.zeros((n + 1, m + 1), dtype=int)
+    trace = np.zeros((n + 1, m + 1), dtype=int)
+
+    for i in range(1, n + 1):
+        score[i, 0] = i * gap
+        trace[i, 0] = 1
+    for j in range(1, m + 1):
+        score[0, j] = j * gap
+        trace[0, j] = 2
+
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            diag = score[i - 1, j - 1] + (match if reference[i - 1] == query[j - 1] else mismatch)
+            up = score[i - 1, j] + gap
+            left = score[i, j - 1] + gap
+            best = max(diag, up, left)
+            score[i, j] = best
+            trace[i, j] = 0 if best == diag else (1 if best == up else 2)
+
+    align_ref = []
+    align_query = []
+    i, j = n, m
+    while i > 0 or j > 0:
+        if i > 0 and j > 0 and trace[i, j] == 0:
+            align_ref.append(reference[i - 1])
+            align_query.append(query[j - 1])
+            i -= 1
+            j -= 1
+        elif i > 0 and (j == 0 or trace[i, j] == 1):
+            align_ref.append(reference[i - 1])
+            align_query.append("-")
+            i -= 1
+        else:
+            align_ref.append("-")
+            align_query.append(query[j - 1])
+            j -= 1
+
+    return "".join(reversed(align_ref)), "".join(reversed(align_query)), int(score[n, m])
+
+
+def alignment_annotation(aligned_ref: str, aligned_query: str):
+    markers = []
+    mismatches = 0
+    for a, b in zip(aligned_ref, aligned_query):
+        if a == b:
+            markers.append("|")
+        elif a == "-" or b == "-":
+            markers.append(" ")
+            mismatches += 1
+        else:
+            markers.append("x")
+            mismatches += 1
+    return "".join(markers), mismatches
+
+
+def map_reads_to_reference(reference: str, reads):
+    rows = []
+    for idx, read in enumerate(reads, start=1):
+        a_ref, a_read, score = needleman_wunsch_align(reference, read)
+        marker, mismatches = alignment_annotation(a_ref, a_read)
+        rows.append(
+            {
+                "ReadID": f"Read_{idx}",
+                "Read": read,
+                "Score": score,
+                "Mismatches": mismatches,
+                "AlignedReference": a_ref,
+                "AlignmentMarker": marker,
+                "AlignedRead": a_read,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+# -----------------------------
+# Module 6 (Protein Analysis)
+# -----------------------------
+CODON_TABLE = {
+    "ATA": "I", "ATC": "I", "ATT": "I", "ATG": "M",
+    "ACA": "T", "ACC": "T", "ACG": "T", "ACT": "T",
+    "AAC": "N", "AAT": "N", "AAA": "K", "AAG": "K",
+    "AGC": "S", "AGT": "S", "AGA": "R", "AGG": "R",
+    "CTA": "L", "CTC": "L", "CTG": "L", "CTT": "L",
+    "CCA": "P", "CCC": "P", "CCG": "P", "CCT": "P",
+    "CAC": "H", "CAT": "H", "CAA": "Q", "CAG": "Q",
+    "CGA": "R", "CGC": "R", "CGG": "R", "CGT": "R",
+    "GTA": "V", "GTC": "V", "GTG": "V", "GTT": "V",
+    "GCA": "A", "GCC": "A", "GCG": "A", "GCT": "A",
+    "GAC": "D", "GAT": "D", "GAA": "E", "GAG": "E",
+    "GGA": "G", "GGC": "G", "GGG": "G", "GGT": "G",
+    "TCA": "S", "TCC": "S", "TCG": "S", "TCT": "S",
+    "TTC": "F", "TTT": "F", "TTA": "L", "TTG": "L",
+    "TAC": "Y", "TAT": "Y", "TAA": "*", "TAG": "*",
+    "TGC": "C", "TGT": "C", "TGA": "*", "TGG": "W",
+}
+
+AMINO_ACID_WEIGHTS = {
+    "A": 89.09, "R": 174.20, "N": 132.12, "D": 133.10, "C": 121.15,
+    "Q": 146.15, "E": 147.13, "G": 75.07, "H": 155.16, "I": 131.17,
+    "L": 131.17, "K": 146.19, "M": 149.21, "F": 165.19, "P": 115.13,
+    "S": 105.09, "T": 119.12, "W": 204.23, "Y": 181.19, "V": 117.15,
+}
+
+HYDROPHOBIC_AA = set("AILMFWYV")
+
+
+def translate_dna_to_protein(sequence: str):
+    seq = sanitize_dna_sequence(sequence)
+    protein = []
+    for i in range(0, len(seq) - 2, 3):
+        codon = seq[i:i + 3]
+        protein.append(CODON_TABLE.get(codon, "X"))
+    return "".join(protein)
+
+
+def analyze_protein_properties(protein: str):
+    aa = [x for x in protein if x.isalpha()]
+    if not aa:
+        return {"Length": 0, "MolecularWeight_kDa": 0.0, "HydrophobicPct": 0.0}, pd.DataFrame(columns=["AminoAcid", "Count"])
+
+    mw = sum(AMINO_ACID_WEIGHTS.get(x, 0.0) for x in aa) / 1000.0
+    hydrophobic_pct = 100.0 * sum(1 for x in aa if x in HYDROPHOBIC_AA) / len(aa)
+    comp = pd.Series(aa).value_counts().reset_index()
+    comp.columns = ["AminoAcid", "Count"]
+    return {
+        "Length": len(aa),
+        "MolecularWeight_kDa": round(mw, 2),
+        "HydrophobicPct": round(hydrophobic_pct, 1),
+    }, comp
+
+
+# -----------------------------
 # Streamlit UI
 # -----------------------------
 st.set_page_config(page_title="PanGen-AI Suite | Computational Genomics", page_icon="🧬", layout="wide")
@@ -427,6 +569,8 @@ page = st.sidebar.radio(
         "Module 2: DeepNCV (AI Variant Caller)",
         "Module 3: Geno-Compressor (BWT)",
         "Module 4: CRISPR Guide Designer",
+        "Module 5: Genome Alignment Explorer",
+        "Module 6: Protein Analysis & Structure Explorer",
     ],
 )
 
@@ -475,8 +619,8 @@ if page == "Home - Overview":
     )
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Active Modules", "4", "Pangenome + DeepNCV + FM-index + CRISPR")
-    c2.metric("Built-in Demo Datasets", "4", "Biologically grounded examples")
+    c1.metric("Active Modules", "6", "Pangenome + DeepNCV + FM-index + CRISPR + Alignment + Protein")
+    c2.metric("Built-in Demo Datasets", "6", "Biologically grounded examples")
     c3.metric("Export Artifacts in Session", str(len(st.session_state.get('export_artifacts', {}))), "Ready for ZIP")
 
     st.markdown(
@@ -485,6 +629,8 @@ if page == "Home - Overview":
 - Module 2: DeepNCV prediction + mutation heatmap + batch export + reproducibility
 - Module 3: BWT + FM-index search with step trace and match highlighting
 - Module 4: CRISPR guide design + NGG PAM scan + off-target proxy scoring
+- Module 5: Needleman-Wunsch read mapping + mismatch highlighting + alignment score
+- Module 6: DNA→protein translation + protein properties + AlphaFold structure links
 """
     )
     st.code(
@@ -499,6 +645,10 @@ DeepNCV Variant Predictor
 Genome Compression + FM-index
   ↓
 CRISPR Guide Designer (NGG)
+  ↓
+Genome Alignment Explorer
+  ↓
+Protein Analysis & Structure Explorer
   ↓
 Visualization + Export
 """,
@@ -515,6 +665,72 @@ Visualization + Export
 """,
             language="text",
         )
+
+    pipeline_seq = st.text_area(
+        "Pipeline Input DNA Sequence",
+        value="ATGCGTACGATCGATCGATCGGATCGATCGATCGTAGGATCGATCGATCGG",
+        key="home_pipeline_sequence",
+        height=110,
+    )
+    pipeline_pattern = st.text_input("Pipeline FM-index Pattern", value="GATC", key="home_pipeline_pattern")
+
+    if st.button("Run Full Genomics Pipeline", key="home_pipeline_run"):
+        clean = sanitize_dna_sequence(pipeline_seq)
+        pattern = sanitize_dna_sequence(pipeline_pattern)
+        if len(clean) < 23:
+            st.warning("Provide at least 23 bp for a meaningful integrated run.")
+        elif not pattern:
+            st.warning("Provide a search pattern for FM-index stage.")
+        else:
+            with st.spinner("Running integrated genomics workflow..."):
+                graph = build_pangenome_graph([clean], k=3)
+                baseline, scan_df = mutation_scan(clean[:90], seed=42)
+                top_row = scan_df.iloc[scan_df["DeltaVsBaseline"].abs().idxmax()]
+                fm = build_fm_index(clean)
+                positions_raw, _ = fm_backward_search_with_steps(pattern, fm)
+                positions = [p for p in positions_raw if p < len(clean)]
+                guides_df = find_crispr_guides(clean)
+                read = clean[max(0, len(clean)//4):max(0, len(clean)//4)+24]
+                a_ref, a_read, aln_score = needleman_wunsch_align(clean, read)
+                _, aln_mismatches = alignment_annotation(a_ref, a_read)
+                protein = translate_dna_to_protein(clean)
+                protein_stats, _ = analyze_protein_properties(protein)
+
+            st.success("Pipeline completed.")
+            avg_gc_text = f"{guides_df['GC%'].mean():.1f}%" if not guides_df.empty else "n/a"
+            st.code(
+                f"""PanGen-AI Analysis Report
+
+Sequence length: {len(clean)} bp
+
+Pangenome Graph
+Nodes: {graph.number_of_nodes()}
+Edges: {graph.number_of_edges()}
+
+Variant Analysis
+Baseline impact score: {baseline:.3f}
+High-impact mutation position: {int(top_row['Position'])}
+
+FM-Index Search
+Pattern: {pattern}
+Matches: {len(positions)}
+
+CRISPR Guides
+High-confidence guides: {int((guides_df['Score'] == 'High').sum()) if not guides_df.empty else 0}
+Average GC%: {avg_gc_text}
+
+Alignment (Module 5)
+Read length: {len(read)}
+Alignment score: {aln_score}
+Mismatches/gaps: {aln_mismatches}
+
+Protein (Module 6)
+Translated length: {protein_stats['Length']} aa
+Molecular weight: {protein_stats['MolecularWeight_kDa']} kDa
+Hydrophobic residues: {protein_stats['HydrophobicPct']}%
+""",
+                language="text",
+            )
 
 elif page == "Module 1: Pangenome Explorer":
     st.title("Module 1: Pangenome Graph Explorer")
@@ -1064,3 +1280,101 @@ It reports guide sequence, PAM, GC%, and a simple off-target similarity indicato
                 )
                 add_export_artifact("crispr_guides.csv", guides_csv)
                 st.caption(f"Analysis completed in {time.time() - start_time:.2f} seconds")
+
+
+elif page == "Module 5: Genome Alignment Explorer":
+    st.title("Module 5: Genome Alignment Explorer")
+    st.markdown("""
+Needleman-Wunsch / read mapping demonstration for pairwise alignment.
+Visualizes alignment with mismatch highlighting and alignment scoring.
+""")
+
+    if "module5_reference" not in st.session_state:
+        st.session_state["module5_reference"] = DATASET_SARS_COV2_FRAGMENT
+    if "module5_reads" not in st.session_state:
+        st.session_state["module5_reads"] = "GTTTTTCTTGTTTTAATTGTTACC\nATGTTTGTTTTTCTTGTTTTAATT"
+
+    if st.button("Load Example Read Mapping", key="module5_example_btn"):
+        st.session_state["module5_reference"] = DATASET_SARS_COV2_FRAGMENT
+        st.session_state["module5_reads"] = "GTTTTTCTTGTTTTAATTGTTACC\nATGTTTGTTTTTCTTGTTTTAATT"
+        st.session_state["module5_example_loaded"] = True
+        st.rerun()
+
+    if st.session_state.pop("module5_example_loaded", False):
+        st.success("Example alignment data loaded.")
+
+    reference = st.text_area("Reference DNA sequence", key="module5_reference", height=100)
+    reads_text = st.text_area("Reads (one per line)", key="module5_reads", height=120)
+
+    if st.button("Run Read Mapping", key="module5_run"):
+        clean_ref = sanitize_dna_sequence(reference)
+        reads = [sanitize_dna_sequence(x) for x in reads_text.split("\n") if x.strip()]
+        if not clean_ref or not reads:
+            st.warning("Provide both a reference sequence and at least one read.")
+        else:
+            map_df = map_reads_to_reference(clean_ref, reads)
+            st.success(f"Mapped {len(map_df)} reads.")
+            st.dataframe(map_df[["ReadID", "Read", "Score", "Mismatches"]], use_container_width=True)
+
+            top = map_df.sort_values("Score", ascending=False).iloc[0]
+            st.subheader(f"Best Alignment: {top['ReadID']}")
+            st.code(
+                "\n".join([top["AlignedReference"], top["AlignmentMarker"], top["AlignedRead"]]),
+                language="text",
+            )
+
+            csv_bytes = map_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "Download Alignment Results (CSV)",
+                data=csv_bytes,
+                file_name="alignment_results.csv",
+                mime="text/csv",
+            )
+            add_export_artifact("alignment_results.csv", csv_bytes)
+
+elif page == "Module 6: Protein Analysis & Structure Explorer":
+    st.title("Module 6: Protein Analysis & Structure Explorer")
+    st.markdown("""
+Translate DNA to protein, compute basic protein properties, and open AlphaFold structure entries.
+""")
+
+    tabs = st.tabs(["DNA → Protein Translation", "Protein Property Analyzer", "AlphaFold Structure Viewer"])
+
+    with tabs[0]:
+        if "module6_dna" not in st.session_state:
+            st.session_state["module6_dna"] = DATASET_TRANSLATION_DNA
+
+        if st.button("Load Translation Example", key="module6_example_btn"):
+            st.session_state["module6_dna"] = DATASET_TRANSLATION_DNA
+            st.session_state["module6_example_loaded"] = True
+            st.rerun()
+
+        if st.session_state.pop("module6_example_loaded", False):
+            st.success("Example DNA loaded.")
+
+        dna_seq = st.text_area("DNA sequence", key="module6_dna", height=110)
+        if st.button("Translate DNA", key="module6_translate"):
+            protein = translate_dna_to_protein(dna_seq)
+            st.code(protein, language="text")
+            st.session_state["module6_protein"] = protein
+
+    with tabs[1]:
+        protein_seq = st.text_area(
+            "Protein sequence",
+            value=st.session_state.get("module6_protein", "MAIVMGR*KGAR*"),
+            key="module6_protein_input",
+            height=110,
+        )
+        if st.button("Analyze Protein Properties", key="module6_analyze"):
+            stats, comp_df = analyze_protein_properties(protein_seq)
+            a1, a2, a3 = st.columns(3)
+            a1.metric("Protein Length", f"{stats['Length']} aa")
+            a2.metric("Molecular Weight", f"{stats['MolecularWeight_kDa']} kDa")
+            a3.metric("Hydrophobic Residues", f"{stats['HydrophobicPct']}%")
+            st.dataframe(comp_df, use_container_width=True)
+
+    with tabs[2]:
+        uniprot_id = st.text_input("UniProt ID", value="P04637", key="module6_uniprot")
+        alphafold_url = f"https://alphafold.ebi.ac.uk/entry/{uniprot_id.strip()}"
+        st.link_button("Open AlphaFold Entry", alphafold_url)
+        st.caption("Tip: Use UniProt IDs like P04637 (p53), Q9Y6K9, or P38398.")
