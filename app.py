@@ -831,7 +831,7 @@ def create_genome_browser_figure(track_data: dict):
         z=[track_data['dna_sequence']],
         x=positions,
         y=["DNA Sequence"],
-        colorscale=[[0, 'white'], [1, 'lightblue'], [2, 'lightgreen'], [3, 'orange'], [4, 'red']],
+        colorscale="Viridis",
         showscale=False,
         hovertemplate='Position: %{x}<br>Base: %{z}<extra></extra>'
     ))
@@ -861,7 +861,7 @@ def create_genome_browser_figure(track_data: dict):
         z=[track_data['gene_annotation']],
         x=positions,
         y=["Gene Annotation"],
-        colorscale=[[0, 'white'], [1, 'darkgreen']],
+        colorscale="Greens",
         showscale=False,
         hovertemplate='Position: %{x}<br>Gene Region: %{z}<extra></extra>'
     ))
@@ -871,7 +871,7 @@ def create_genome_browser_figure(track_data: dict):
         z=[track_data['protein_coding']],
         x=positions,
         y=["Protein Coding"],
-        colorscale=[[0, 'white'], [1, 'purple']],
+        colorscale="Purples",
         showscale=False,
         hovertemplate='Position: %{x}<br>Coding Region: %{z}<extra></extra>'
     ))
