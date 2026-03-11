@@ -12,3 +12,5 @@ scikit-learn
 stmol
 py3Dmol
 requests
+ipython-genutils
+ipywidgets
