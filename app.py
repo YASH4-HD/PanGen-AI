@@ -1945,17 +1945,24 @@ DNA→protein translation, protein properties, AlphaFold lookup, and a BLOSUM62-
         Fetch and visualize protein structures from RCSB PDB or AlphaFold database.
         Enter either a PDB ID (e.g., 1A3N) or UniProt ID (e.g., P04637).
         """)
-        
+
+        if "module6_bg_color" not in st.session_state:
+            st.session_state["module6_bg_color"] = "#f0f0f0"
+        if "module6_spin_enabled" not in st.session_state:
+            st.session_state["module6_spin_enabled"] = False
+        if "module6_color_scheme" not in st.session_state:
+            st.session_state["module6_color_scheme"] = "spectrum"
+
         col1, col2 = st.columns([2, 1])
-        
+
         with col1:
             protein_id = st.text_input(
-                "PDB ID or UniProt ID", 
-                value="P04637", 
+                "PDB ID or UniProt ID",
+                value="P04637",
                 key="module6_structure_id",
                 help="Enter PDB ID (e.g., 1A3N, 2HYY) or UniProt ID (e.g., P04637, Q9Y6K9)"
             )
-        
+
         with col2:
             style_options = ["cartoon", "stick", "sphere", "line"]
             selected_style = st.selectbox(
@@ -1964,112 +1971,43 @@ DNA→protein translation, protein properties, AlphaFold lookup, and a BLOSUM62-
                 index=0,
                 key="module6_structure_style"
             )
-        
+
         # Example proteins dropdown
         with st.expander("Example Proteins"):
             example_proteins = {
                 "p53 (Tumor suppressor)": "P04637",
-                "Hemoglobin": "1A3N", 
+                "Hemoglobin": "1A3N",
                 "Lysozyme": "1AKI",
                 "DNA Polymerase": "3K5A",
                 "Insulin": "1ZNJ",
                 "Myoglobin": "1MBO",
                 "Carbonic Anhydrase": "2CBA"
             }
-            
+
             selected_example = st.selectbox(
                 "Select an example protein:",
                 ["None"] + list(example_proteins.keys()),
                 key="module6_example_protein",
                 on_change=update_protein_id_from_example
             )
-        
+
         if st.button("Fetch and Visualize Structure", key="module6_fetch_structure"):
             if not protein_id.strip():
                 st.error("Please enter a PDB ID or UniProt ID.")
             else:
                 with st.spinner(f"Fetching structure for {protein_id}..."):
                     pdb_data, source = fetch_pdb_data(protein_id)
-                    
                     if pdb_data:
-                        st.success(f"Structure fetched from {source.upper()} database!")
-                        
-                        # Display protein information if UniProt ID
-                        if len(protein_id) == 6 and protein_id.startswith('P'):
+                        st.session_state["module6_pdb_data"] = pdb_data
+                        st.session_state["module6_structure_source"] = source
+                        st.session_state["module6_last_structure_id"] = protein_id
+                        st.session_state["module6_spin_enabled"] = False
+                        st.session_state["module6_bg_color"] = "#f0f0f0"
+
+                        protein_info = None
+                        if len(protein_id) == 6 and protein_id[0] in {"P", "Q", "O"}:
                             protein_info = get_protein_info(protein_id)
-                            if protein_info:
-                                st.markdown("### Protein Information")
-                                info_col1, info_col2, info_col3 = st.columns(3)
-                                info_col1.metric("Name", protein_info['name'][:30] + "..." if len(protein_info['name']) > 30 else protein_info['name'])
-                                info_col2.metric("Length", f"{protein_info['length']} aa")
-                                info_col3.metric("Mass", f"{protein_info['mass']/1000:.1f} kDa")
-                                
-                                st.markdown("**Organism:** " + protein_info['organism'])
-                                with st.expander("Functional Description"):
-                                    st.write(protein_info['function'])
-                        
-                        # Create and display 3D structure
-                        st.markdown("### 3D Structure Visualization")
-                        viewer = create_3d_structure_viewer(pdb_data, selected_style)
-                        render_structure_in_streamlit(viewer)
-                        
-                        # Structure controls
-                        st.markdown("### Structure Controls")
-                        control_col1, control_col2, control_col3 = st.columns(3)
-                        
-                        with control_col1:
-                            if st.button("Reset View", key="module6_reset_view"):
-                                viewer.zoomTo()
-                                render_structure_in_streamlit(viewer)
-                                st.rerun()
-                        
-                        with control_col2:
-                            if st.button("Toggle Spin", key="module6_toggle_spin"):
-                                viewer.spin()
-                                render_structure_in_streamlit(viewer)
-                                st.rerun()
-                        
-                        with control_col3:
-                            if st.button("Download Structure", key="module6_download_structure"):
-                                st.download_button(
-                                    "Download PDB File",
-                                    data=pdb_data,
-                                    file_name=f"{protein_id}.pdb",
-                                    mime="text/plain",
-                                    key="module6_pdb_download"
-                                )
-                        
-                        # Style options
-                        st.markdown("### Visualization Options")
-                        style_col1, style_col2 = st.columns(2)
-                        
-                        with style_col1:
-                            st.markdown("**Color Schemes:**")
-                            if st.button("Spectrum", key="module6_spectrum"):
-                                viewer.setStyle({'cartoon': {'color': 'spectrum'}})
-                                render_structure_in_streamlit(viewer)
-                                st.rerun()
-                            
-                            if st.button("Chain Colors", key="module6_chain_colors"):
-                                viewer.setStyle({'cartoon': {'color': 'chain'}})
-                                render_structure_in_streamlit(viewer)
-                                st.rerun()
-                        
-                        with style_col2:
-                            st.markdown("**Background Colors:**")
-                            if st.button("Light Background", key="module6_light_bg"):
-                                viewer.setBackgroundColor('#f0f0f0')
-                                render_structure_in_streamlit(viewer)
-                                st.rerun()
-                            
-                            if st.button("Dark Background", key="module6_dark_bg"):
-                                viewer.setBackgroundColor('#1e1e1e')
-                                render_structure_in_streamlit(viewer)
-                                st.rerun()
-                        
-                        # Add to export artifacts
-                        add_export_artifact(f"{protein_id}.pdb", pdb_data.encode('utf-8'))
-                        
+                        st.session_state["module6_protein_info"] = protein_info
                     else:
                         st.error(f"Could not fetch structure for {protein_id}. Please check the ID and try again.")
                         st.markdown("""
@@ -2079,6 +2017,80 @@ DNA→protein translation, protein properties, AlphaFold lookup, and a BLOSUM62-
                         - Make sure you have an internet connection
                         - Some structures may not be available in the databases
                         """)
+
+        pdb_data = st.session_state.get("module6_pdb_data")
+        if pdb_data:
+            structure_id = st.session_state.get("module6_last_structure_id", protein_id)
+            source = st.session_state.get("module6_structure_source", "unknown")
+            st.success(f"Structure loaded for {structure_id} from {str(source).upper()} database!")
+
+            protein_info = st.session_state.get("module6_protein_info")
+            if protein_info:
+                st.markdown("### Protein Information")
+                info_col1, info_col2, info_col3 = st.columns(3)
+                info_col1.metric("Name", protein_info['name'][:30] + "..." if len(protein_info['name']) > 30 else protein_info['name'])
+                info_col2.metric("Length", f"{protein_info['length']} aa")
+                info_col3.metric("Mass", f"{protein_info['mass']/1000:.1f} kDa")
+
+                st.markdown("**Organism:** " + protein_info['organism'])
+                with st.expander("Functional Description"):
+                    st.write(protein_info['function'])
+
+            viewer = create_3d_structure_viewer(pdb_data, selected_style)
+            if selected_style == "cartoon":
+                viewer.setStyle({'cartoon': {'color': st.session_state.get("module6_color_scheme", "spectrum")}})
+            if st.session_state.get("module6_spin_enabled", False):
+                viewer.spin(True)
+            viewer.setBackgroundColor(st.session_state.get("module6_bg_color", "#f0f0f0"))
+
+            st.markdown("### 3D Structure Visualization")
+            render_structure_in_streamlit(viewer)
+
+            # Structure controls
+            st.markdown("### Structure Controls")
+            control_col1, control_col2, control_col3 = st.columns(3)
+
+            with control_col1:
+                if st.button("Reset View", key="module6_reset_view"):
+                    st.session_state["module6_spin_enabled"] = False
+                    st.session_state["module6_bg_color"] = "#f0f0f0"
+                    st.session_state["module6_color_scheme"] = "spectrum"
+
+            with control_col2:
+                if st.button("Toggle Spin", key="module6_toggle_spin"):
+                    st.session_state["module6_spin_enabled"] = not st.session_state.get("module6_spin_enabled", False)
+
+            with control_col3:
+                st.download_button(
+                    "Download PDB File",
+                    data=pdb_data,
+                    file_name=f"{structure_id}.pdb",
+                    mime="text/plain",
+                    key="module6_pdb_download"
+                )
+
+            # Style options
+            st.markdown("### Visualization Options")
+            style_col1, style_col2 = st.columns(2)
+
+            with style_col1:
+                st.markdown("**Color Schemes:**")
+                if st.button("Spectrum", key="module6_spectrum"):
+                    st.session_state["module6_color_scheme"] = "spectrum"
+
+                if st.button("Chain Colors", key="module6_chain_colors"):
+                    st.session_state["module6_color_scheme"] = "chain"
+
+            with style_col2:
+                st.markdown("**Background Colors:**")
+                if st.button("Light Background", key="module6_light_bg"):
+                    st.session_state["module6_bg_color"] = '#f0f0f0'
+
+                if st.button("Dark Background", key="module6_dark_bg"):
+                    st.session_state["module6_bg_color"] = '#1e1e1e'
+
+            # Add to export artifacts
+            add_export_artifact(f"{structure_id}.pdb", pdb_data.encode('utf-8'))
         
         # Database information
         st.markdown("---")
