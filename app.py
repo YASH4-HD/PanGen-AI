@@ -37,15 +37,15 @@ def parse_fasta_text(text: str):
          continue
       if line.startswith(">"):
          if current:
-             sequences.append(sanitize_dna_sequence("".join(current)))
-             current = []
+            sequences.append(sanitize_dna_sequence("".join(current)))
+            current = []
       else:
          current.append(line)
-      
-      if current:
-           sequences.append(sanitize_dna_sequence("".join(current)))
-      
-      return [s for s in sequences if s]
+   
+   if current:
+      sequences.append(sanitize_dna_sequence("".join(current)))
+   
+   return [s for s in sequences if s]
 
 
 # Curated demo datasets
@@ -65,19 +65,19 @@ def fig_to_png_bytes(fig):
 
 def add_export_artifact(filename: str, data: bytes):
    if "export_artifacts" not in st.session_state:
-   st.session_state["export_artifacts"] = {}
+      st.session_state["export_artifacts"] = {}
    st.session_state["export_artifacts"][filename] = data
 
 
 def build_results_zip_bytes():
    artifacts = st.session_state.get("export_artifacts", {})
    if not artifacts:
-   return None
+      return None
    
    zip_buffer = io.BytesIO()
    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-   for name, data in artifacts.items():
-   zf.writestr(name, data)
+      for name, data in artifacts.items():
+         zf.writestr(name, data)
    zip_buffer.seek(0)
    return zip_buffer.getvalue()
 
@@ -86,137 +86,137 @@ def build_results_zip_bytes():
 # Module 3 (Compression + Search)
 # -----------------------------
 def generate_bwt(sequence: str):
-seq = sequence.upper() + "$"
-rotations = [seq[i:] + seq[:i] for i in range(len(seq))]
-rotations.sort()
-bwt_string = "".join(rotation[-1] for rotation in rotations)
-return bwt_string, rotations
+   seq = sequence.upper() + "$"
+   rotations = [seq[i:] + seq[:i] for i in range(len(seq))]
+   rotations.sort()
+   bwt_string = "".join(rotation[-1] for rotation in rotations)
+   return bwt_string, rotations
 
 
 def inverse_bwt(bwt_string: str) -> str:
-table = [""] * len(bwt_string)
-for _ in range(len(bwt_string)):
-table = [bwt_string[i] + table[i] for i in range(len(bwt_string))]
-table.sort()
+   table = [""] * len(bwt_string)
+   for _ in range(len(bwt_string)):
+      table = [bwt_string[i] + table[i] for i in range(len(bwt_string))]
+      table.sort()
 
-for row in table:
-if row.endswith("$"):
-return row[:-1]
-return ""
+   for row in table:
+      if row.endswith("$"):
+         return row[:-1]
+   return ""
 
 
 def build_fm_index(sequence: str):
-text = sequence.upper() + "$"
-suffix_array = sorted(range(len(text)), key=lambda i: text[i:])
-bwt = "".join(text[i - 1] if i > 0 else "$" for i in suffix_array)
+   text = sequence.upper() + "$"
+   suffix_array = sorted(range(len(text)), key=lambda i: text[i:])
+   bwt = "".join(text[i - 1] if i > 0 else "$" for i in suffix_array)
 
-alphabet = sorted(set(text))
-char_counts = {c: 0 for c in alphabet}
-for c in text:
-char_counts[c] += 1
+   alphabet = sorted(set(text))
+   char_counts = {c: 0 for c in alphabet}
+   for c in text:
+      char_counts[c] += 1
 
-c_table = {}
-running_total = 0
-for c in alphabet:
-c_table[c] = running_total
-running_total += char_counts[c]
+   c_table = {}
+   running_total = 0
+   for c in alphabet:
+      c_table[c] = running_total
+      running_total += char_counts[c]
 
-occ = {c: [0] * (len(bwt) + 1) for c in alphabet}
-for i, ch in enumerate(bwt, start=1):
-for c in alphabet:
-occ[c][i] = occ[c][i - 1]
-occ[ch][i] += 1
+   occ = {c: [0] * (len(bwt) + 1) for c in alphabet}
+   for i, ch in enumerate(bwt, start=1):
+      for c in alphabet:
+         occ[c][i] = occ[c][i - 1]
+      occ[ch][i] += 1
 
-return {
-"text": text,
-"suffix_array": suffix_array,
-"bwt": bwt,
-"alphabet": alphabet,
-"c_table": c_table,
-"occ": occ,
-}
+   return {
+      "text": text,
+      "suffix_array": suffix_array,
+      "bwt": bwt,
+      "alphabet": alphabet,
+      "c_table": c_table,
+      "occ": occ,
+   }
 
 
 def fm_backward_search_with_steps(pattern: str, fm_index: dict):
-pattern = pattern.upper()
-if not pattern:
-return [], []
+   pattern = pattern.upper()
+   if not pattern:
+      return [], []
 
-bwt = fm_index["bwt"]
-c_table = fm_index["c_table"]
-occ = fm_index["occ"]
-suffix_array = fm_index["suffix_array"]
+   bwt = fm_index["bwt"]
+   c_table = fm_index["c_table"]
+   occ = fm_index["occ"]
+   suffix_array = fm_index["suffix_array"]
 
-if any(ch not in c_table for ch in pattern):
-return [], []
+   if any(ch not in c_table for ch in pattern):
+      return [], []
 
-l, r = 0, len(bwt)
-steps = []
-for step_id, ch in enumerate(reversed(pattern), start=1):
-l = c_table[ch] + occ[ch][l]
-r = c_table[ch] + occ[ch][r]
-steps.append({"Step": step_id, "SearchChar": ch, "RangeStart": l, "RangeEndExclusive": r})
-if l >= r:
-return [], steps
+   l, r = 0, len(bwt)
+   steps = []
+   for step_id, ch in enumerate(reversed(pattern), start=1):
+      l = c_table[ch] + occ[ch][l]
+      r = c_table[ch] + occ[ch][r]
+      steps.append({"Step": step_id, "SearchChar": ch, "RangeStart": l, "RangeEndExclusive": r})
+      if l >= r:
+         return [], steps
 
-return sorted(suffix_array[l:r]), steps
+   return sorted(suffix_array[l:r]), steps
 
 
 def build_match_alignment(sequence: str, pattern: str, positions):
-lines = [sequence]
-for pos in positions:
-lines.append(" " * pos + pattern)
-return "\n".join(lines)
+   lines = [sequence]
+   for pos in positions:
+      lines.append(" " * pos + pattern)
+   return "\n".join(lines)
 
 
 # -----------------------------
 # Module 1 (Graph-based Pangenome)
 # -----------------------------
 def build_pangenome_graph(sequences, k=3):
-graph = nx.DiGraph()
+   graph = nx.DiGraph()
 
-for seq in sequences:
-seq = seq.upper()
-if len(seq) < k + 1:
-continue
+   for seq in sequences:
+      seq = seq.upper()
+      if len(seq) < k + 1:
+         continue
 
-for i in range(len(seq) - k):
-kmer_1 = seq[i:i + k]
-kmer_2 = seq[i + 1:i + k + 1]
+      for i in range(len(seq) - k):
+         kmer_1 = seq[i:i + k]
+         kmer_2 = seq[i + 1:i + k + 1]
 
-if graph.has_edge(kmer_1, kmer_2):
-graph[kmer_1][kmer_2]["weight"] += 1
-else:
-graph.add_edge(kmer_1, kmer_2, weight=1)
+         if graph.has_edge(kmer_1, kmer_2):
+            graph[kmer_1][kmer_2]["weight"] += 1
+         else:
+            graph.add_edge(kmer_1, kmer_2, weight=1)
 
-return graph
+   return graph
 
 
 def compute_conservation_profile(sequences):
-if not sequences:
-return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
+   if not sequences:
+      return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
 
-sequences = [s.upper() for s in sequences if s]
-if not sequences:
-return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
+   sequences = [s.upper() for s in sequences if s]
+   if not sequences:
+      return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
 
-min_len = min(len(s) for s in sequences)
-if min_len == 0:
-return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
+   min_len = min(len(s) for s in sequences)
+   if min_len == 0:
+      return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
 
-rows = []
-for i in range(min_len):
-column = [s[i] for s in sequences]
-counts = pd.Series(column).value_counts()
-rows.append(
-{
-"Position": i + 1,
-"Conservation": counts.iloc[0] / len(column),
-"MajorBase": counts.index[0],
-}
-)
+   rows = []
+   for i in range(min_len):
+      column = [s[i] for s in sequences]
+      counts = pd.Series(column).value_counts()
+      rows.append(
+         {
+            "Position": i + 1,
+            "Conservation": counts.iloc[0] / len(column),
+            "MajorBase": counts.index[0],
+         }
+      )
 
-return pd.DataFrame(rows)
+   return pd.DataFrame(rows)
 
 
 def build_interactive_graph_figure(graph: nx.DiGraph):
