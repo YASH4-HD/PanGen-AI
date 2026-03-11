@@ -1915,7 +1915,7 @@ Predicted impact: {result['PredictedImpact']}
                 st.pyplot(fig)
                 
                 # Add explanation for score interpretation
-                st.markdown("""
+                st.info("""
                 **Score Interpretation:**
                 - **Positive scores** (red): Conservative mutations - amino acids are similar, likely tolerated
                 - **Negative scores** (blue): Damaging mutations - amino acids are different, likely deleterious
