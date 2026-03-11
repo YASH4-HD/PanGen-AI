@@ -23,29 +23,29 @@ import torch.nn.functional as F
 # Utilities
 # -----------------------------
 def sanitize_dna_sequence(text: str) -> str:
-   return "".join(text.split()).upper()
+return "".join(text.split()).upper()
 
 
 def parse_fasta_text(text: str):
-   """Minimal FASTA parser; returns list of DNA sequences."""
-   sequences = []
-   current = []
+"""Minimal FASTA parser; returns list of DNA sequences."""
+sequences = []
+current = []
 
-   for raw_line in text.splitlines():
-      line = raw_line.strip()
-      if not line:
-         continue
-      if line.startswith(">"):
-         if current:
-            sequences.append(sanitize_dna_sequence("".join(current)))
-            current = []
-      else:
-         current.append(line)
-   
-   if current:
-      sequences.append(sanitize_dna_sequence("".join(current)))
-   
-   return [s for s in sequences if s]
+for raw_line in text.splitlines():
+line = raw_line.strip()
+if not line:
+continue
+if line.startswith(">"):
+if current:
+sequences.append(sanitize_dna_sequence("".join(current)))
+current = []
+else:
+current.append(line)
+
+if current:
+sequences.append(sanitize_dna_sequence("".join(current)))
+
+return [s for s in sequences if s]
 
 
 # Curated demo datasets
@@ -57,449 +57,449 @@ DATASET_TRANSLATION_DNA = "ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG"
 
 
 def fig_to_png_bytes(fig):
-   buffer = io.BytesIO()
-   fig.savefig(buffer, format="png", dpi=300, bbox_inches="tight")
-   buffer.seek(0)
-   return buffer.getvalue()
+buffer = io.BytesIO()
+fig.savefig(buffer, format="png", dpi=300, bbox_inches="tight")
+buffer.seek(0)
+return buffer.getvalue()
 
 
 def add_export_artifact(filename: str, data: bytes):
-   if "export_artifacts" not in st.session_state:
-      st.session_state["export_artifacts"] = {}
-   st.session_state["export_artifacts"][filename] = data
+if "export_artifacts" not in st.session_state:
+st.session_state["export_artifacts"] = {}
+st.session_state["export_artifacts"][filename] = data
 
 
 def build_results_zip_bytes():
-   artifacts = st.session_state.get("export_artifacts", {})
-   if not artifacts:
-      return None
-   
-   zip_buffer = io.BytesIO()
-   with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-      for name, data in artifacts.items():
-         zf.writestr(name, data)
-   zip_buffer.seek(0)
-   return zip_buffer.getvalue()
+artifacts = st.session_state.get("export_artifacts", {})
+if not artifacts:
+return None
+
+zip_buffer = io.BytesIO()
+with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+for name, data in artifacts.items():
+zf.writestr(name, data)
+zip_buffer.seek(0)
+return zip_buffer.getvalue()
 
 
 # -----------------------------
 # Module 3 (Compression + Search)
 # -----------------------------
 def generate_bwt(sequence: str):
-   seq = sequence.upper() + "$"
-   rotations = [seq[i:] + seq[:i] for i in range(len(seq))]
-   rotations.sort()
-   bwt_string = "".join(rotation[-1] for rotation in rotations)
-   return bwt_string, rotations
+seq = sequence.upper() + "$"
+rotations = [seq[i:] + seq[:i] for i in range(len(seq))]
+rotations.sort()
+bwt_string = "".join(rotation[-1] for rotation in rotations)
+return bwt_string, rotations
 
 
 def inverse_bwt(bwt_string: str) -> str:
-   table = [""] * len(bwt_string)
-   for _ in range(len(bwt_string)):
-      table = [bwt_string[i] + table[i] for i in range(len(bwt_string))]
-      table.sort()
+table = [""] * len(bwt_string)
+for _ in range(len(bwt_string)):
+table = [bwt_string[i] + table[i] for i in range(len(bwt_string))]
+table.sort()
 
-   for row in table:
-      if row.endswith("$"):
-         return row[:-1]
-   return ""
+for row in table:
+if row.endswith("$"):
+return row[:-1]
+return ""
 
 
 def build_fm_index(sequence: str):
-   text = sequence.upper() + "$"
-   suffix_array = sorted(range(len(text)), key=lambda i: text[i:])
-   bwt = "".join(text[i - 1] if i > 0 else "$" for i in suffix_array)
+text = sequence.upper() + "$"
+suffix_array = sorted(range(len(text)), key=lambda i: text[i:])
+bwt = "".join(text[i - 1] if i > 0 else "$" for i in suffix_array)
 
-   alphabet = sorted(set(text))
-   char_counts = {c: 0 for c in alphabet}
-   for c in text:
-      char_counts[c] += 1
+alphabet = sorted(set(text))
+char_counts = {c: 0 for c in alphabet}
+for c in text:
+char_counts[c] += 1
 
-   c_table = {}
-   running_total = 0
-   for c in alphabet:
-      c_table[c] = running_total
-      running_total += char_counts[c]
+c_table = {}
+running_total = 0
+for c in alphabet:
+c_table[c] = running_total
+running_total += char_counts[c]
 
-   occ = {c: [0] * (len(bwt) + 1) for c in alphabet}
-   for i, ch in enumerate(bwt, start=1):
-      for c in alphabet:
-         occ[c][i] = occ[c][i - 1]
-      occ[ch][i] += 1
+occ = {c: [0] * (len(bwt) + 1) for c in alphabet}
+for i, ch in enumerate(bwt, start=1):
+for c in alphabet:
+occ[c][i] = occ[c][i - 1]
+occ[ch][i] += 1
 
-   return {
-      "text": text,
-      "suffix_array": suffix_array,
-      "bwt": bwt,
-      "alphabet": alphabet,
-      "c_table": c_table,
-      "occ": occ,
-   }
+return {
+"text": text,
+"suffix_array": suffix_array,
+"bwt": bwt,
+"alphabet": alphabet,
+"c_table": c_table,
+"occ": occ,
+}
 
 
 def fm_backward_search_with_steps(pattern: str, fm_index: dict):
-   pattern = pattern.upper()
-   if not pattern:
-      return [], []
+pattern = pattern.upper()
+if not pattern:
+return [], []
 
-   bwt = fm_index["bwt"]
-   c_table = fm_index["c_table"]
-   occ = fm_index["occ"]
-   suffix_array = fm_index["suffix_array"]
+bwt = fm_index["bwt"]
+c_table = fm_index["c_table"]
+occ = fm_index["occ"]
+suffix_array = fm_index["suffix_array"]
 
-   if any(ch not in c_table for ch in pattern):
-      return [], []
+if any(ch not in c_table for ch in pattern):
+return [], []
 
-   l, r = 0, len(bwt)
-   steps = []
-   for step_id, ch in enumerate(reversed(pattern), start=1):
-      l = c_table[ch] + occ[ch][l]
-      r = c_table[ch] + occ[ch][r]
-      steps.append({"Step": step_id, "SearchChar": ch, "RangeStart": l, "RangeEndExclusive": r})
-      if l >= r:
-         return [], steps
+l, r = 0, len(bwt)
+steps = []
+for step_id, ch in enumerate(reversed(pattern), start=1):
+l = c_table[ch] + occ[ch][l]
+r = c_table[ch] + occ[ch][r]
+steps.append({"Step": step_id, "SearchChar": ch, "RangeStart": l, "RangeEndExclusive": r})
+if l >= r:
+return [], steps
 
-   return sorted(suffix_array[l:r]), steps
+return sorted(suffix_array[l:r]), steps
 
 
 def build_match_alignment(sequence: str, pattern: str, positions):
-   lines = [sequence]
-   for pos in positions:
-      lines.append(" " * pos + pattern)
-   return "\n".join(lines)
+lines = [sequence]
+for pos in positions:
+lines.append(" " * pos + pattern)
+return "\n".join(lines)
 
 
 # -----------------------------
 # Module 1 (Graph-based Pangenome)
 # -----------------------------
 def build_pangenome_graph(sequences, k=3):
-   graph = nx.DiGraph()
+graph = nx.DiGraph()
 
-   for seq in sequences:
-      seq = seq.upper()
-      if len(seq) < k + 1:
-         continue
+for seq in sequences:
+seq = seq.upper()
+if len(seq) < k + 1:
+continue
 
-      for i in range(len(seq) - k):
-         kmer_1 = seq[i:i + k]
-         kmer_2 = seq[i + 1:i + k + 1]
+for i in range(len(seq) - k):
+kmer_1 = seq[i:i + k]
+kmer_2 = seq[i + 1:i + k + 1]
 
-         if graph.has_edge(kmer_1, kmer_2):
-            graph[kmer_1][kmer_2]["weight"] += 1
-         else:
-            graph.add_edge(kmer_1, kmer_2, weight=1)
+if graph.has_edge(kmer_1, kmer_2):
+graph[kmer_1][kmer_2]["weight"] += 1
+else:
+graph.add_edge(kmer_1, kmer_2, weight=1)
 
-   return graph
+return graph
 
 
 def compute_conservation_profile(sequences):
-   if not sequences:
-      return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
+if not sequences:
+return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
 
-   sequences = [s.upper() for s in sequences if s]
-   if not sequences:
-      return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
+sequences = [s.upper() for s in sequences if s]
+if not sequences:
+return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
 
-   min_len = min(len(s) for s in sequences)
-   if min_len == 0:
-      return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
+min_len = min(len(s) for s in sequences)
+if min_len == 0:
+return pd.DataFrame(columns=["Position", "Conservation", "MajorBase"])
 
-   rows = []
-   for i in range(min_len):
-      column = [s[i] for s in sequences]
-      counts = pd.Series(column).value_counts()
-      rows.append(
-         {
-            "Position": i + 1,
-            "Conservation": counts.iloc[0] / len(column),
-            "MajorBase": counts.index[0],
-         }
-      )
+rows = []
+for i in range(min_len):
+column = [s[i] for s in sequences]
+counts = pd.Series(column).value_counts()
+rows.append(
+{
+"Position": i + 1,
+"Conservation": counts.iloc[0] / len(column),
+"MajorBase": counts.index[0],
+}
+)
 
-   return pd.DataFrame(rows)
+return pd.DataFrame(rows)
 
 
 def build_interactive_graph_figure(graph: nx.DiGraph):
-    pos = nx.spring_layout(graph, seed=42)
+pos = nx.spring_layout(graph, seed=42)
 
-    edge_x = []
-    edge_y = []
-    edge_text = []
-    for u, v in graph.edges():
-        x0, y0 = pos[u]
-        x1, y1 = pos[v]
-        edge_x += [x0, x1, None]
-        edge_y += [y0, y1, None]
-        edge_text.append(f"{u} ➜ {v} | weight={graph[u][v]['weight']}")
+edge_x = []
+edge_y = []
+edge_text = []
+for u, v in graph.edges():
+x0, y0 = pos[u]
+x1, y1 = pos[v]
+edge_x += [x0, x1, None]
+edge_y += [y0, y1, None]
+edge_text.append(f"{u} ➜ {v} | weight={graph[u][v]['weight']}")
 
-    edge_trace = go.Scatter(
-        x=edge_x,
-        y=edge_y,
-        line=dict(width=1.2, color="#888"),
-        hoverinfo="none",
-        mode="lines",
-    )
+edge_trace = go.Scatter(
+x=edge_x,
+y=edge_y,
+line=dict(width=1.2, color="#888"),
+hoverinfo="none",
+mode="lines",
+)
 
-    node_x = []
-    node_y = []
-    node_text = []
-    node_size = []
-    for node in graph.nodes():
-        x, y = pos[node]
-        node_x.append(x)
-        node_y.append(y)
-        degree = graph.in_degree(node) + graph.out_degree(node)
-        node_size.append(12 + degree * 3)
-        node_text.append(f"k-mer: {node}<br>In: {graph.in_degree(node)} Out: {graph.out_degree(node)}")
+node_x = []
+node_y = []
+node_text = []
+node_size = []
+for node in graph.nodes():
+x, y = pos[node]
+node_x.append(x)
+node_y.append(y)
+degree = graph.in_degree(node) + graph.out_degree(node)
+node_size.append(12 + degree * 3)
+node_text.append(f"k-mer: {node}<br>In: {graph.in_degree(node)} Out: {graph.out_degree(node)}")
 
-    node_trace = go.Scatter(
-        x=node_x,
-        y=node_y,
-        mode="markers+text",
-        hoverinfo="text",
-        text=[n for n in graph.nodes()],
-        textposition="top center",
-        marker=dict(
-            showscale=False,
-            color="#2ca02c",
-            size=node_size,
-            line_width=1.5,
-        ),
-        hovertext=node_text,
-    )
+node_trace = go.Scatter(
+x=node_x,
+y=node_y,
+mode="markers+text",
+hoverinfo="text",
+text=[n for n in graph.nodes()],
+textposition="top center",
+marker=dict(
+showscale=False,
+color="#2ca02c",
+size=node_size,
+line_width=1.5,
+),
+hovertext=node_text,
+)
 
-    fig = go.Figure(
-        data=[edge_trace, node_trace],
-        layout=go.Layout(
-            title=dict(text="Interactive Pangenome k-mer Graph (Zoom / Pan / Hover)", font=dict(size=16)),
-            showlegend=False,
-            hovermode="closest",
-            margin=dict(b=20, l=20, r=20, t=50),
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            height=520,
-        ),
-    )
-    return fig
+fig = go.Figure(
+data=[edge_trace, node_trace],
+layout=go.Layout(
+title=dict(text="Interactive Pangenome k-mer Graph (Zoom / Pan / Hover)", font=dict(size=16)),
+showlegend=False,
+hovermode="closest",
+margin=dict(b=20, l=20, r=20, t=50),
+xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+height=520,
+),
+)
+return fig
 
 
 # -----------------------------
 # Module 2 (DeepNCV + Explorer)
 # -----------------------------
 class SimpleDNA_CNN(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv1d(in_channels=4, out_channels=16, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
-        self.global_pool = nn.AdaptiveAvgPool1d(1)
-        self.fc1 = nn.Linear(32, 16)
-        self.fc2 = nn.Linear(16, 1)
+def __init__(self):
+super().__init__()
+self.conv1 = nn.Conv1d(in_channels=4, out_channels=16, kernel_size=3, padding=1)
+self.conv2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
+self.global_pool = nn.AdaptiveAvgPool1d(1)
+self.fc1 = nn.Linear(32, 16)
+self.fc2 = nn.Linear(16, 1)
 
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = self.global_pool(x)
-        x = x.view(x.size(0), -1)
-        x = F.relu(self.fc1(x))
-        return torch.sigmoid(self.fc2(x))
+def forward(self, x):
+x = F.relu(self.conv1(x))
+x = F.relu(self.conv2(x))
+x = self.global_pool(x)
+x = x.view(x.size(0), -1)
+x = F.relu(self.fc1(x))
+return torch.sigmoid(self.fc2(x))
 
 
 def encode_sequence(seq: str) -> torch.Tensor:
-    mapping = {
-        "A": [1, 0, 0, 0],
-        "C": [0, 1, 0, 0],
-        "G": [0, 0, 1, 0],
-        "T": [0, 0, 0, 1],
-    }
-    encoded = [mapping.get(base.upper(), [0.25, 0.25, 0.25, 0.25]) for base in seq]
-    return torch.tensor(encoded, dtype=torch.float32).T.unsqueeze(0)
+mapping = {
+"A": [1, 0, 0, 0],
+"C": [0, 1, 0, 0],
+"G": [0, 0, 1, 0],
+"T": [0, 0, 0, 1],
+}
+encoded = [mapping.get(base.upper(), [0.25, 0.25, 0.25, 0.25]) for base in seq]
+return torch.tensor(encoded, dtype=torch.float32).T.unsqueeze(0)
 
 
 def get_model(seed=42):
-    torch.manual_seed(seed)
-    model = SimpleDNA_CNN()
-    model.eval()
-    return model
+torch.manual_seed(seed)
+model = SimpleDNA_CNN()
+model.eval()
+return model
 
 
 def predict_functional_impact(sequence: str, seed: int = 42) -> float:
-    model = get_model(seed=seed)
-    with torch.no_grad():
-        output = model(encode_sequence(sequence))
-    return output.item()
+model = get_model(seed=seed)
+with torch.no_grad():
+output = model(encode_sequence(sequence))
+return output.item()
 
 
 def compute_saliency(sequence: str, seed: int = 42):
-    model = get_model(seed=seed)
-    input_tensor = encode_sequence(sequence)
-    input_tensor.requires_grad_(True)
+model = get_model(seed=seed)
+input_tensor = encode_sequence(sequence)
+input_tensor.requires_grad_(True)
 
-    output = model(input_tensor)
-    output.backward(torch.ones_like(output))
+output = model(input_tensor)
+output.backward(torch.ones_like(output))
 
-    grads = input_tensor.grad.detach().abs().squeeze(0)
-    return grads.max(dim=0).values.cpu().numpy()
+grads = input_tensor.grad.detach().abs().squeeze(0)
+return grads.max(dim=0).values.cpu().numpy()
 
 
 def mutation_scan(sequence: str, seed: int = 42):
-    sequence = sanitize_dna_sequence(sequence)
-    bases = ["A", "C", "G", "T"]
-    baseline = predict_functional_impact(sequence, seed=seed)
+sequence = sanitize_dna_sequence(sequence)
+bases = ["A", "C", "G", "T"]
+baseline = predict_functional_impact(sequence, seed=seed)
 
-    rows = []
-    for idx, ref in enumerate(sequence):
-        for alt in bases:
-            mutant = sequence[:idx] + alt + sequence[idx + 1:]
-            score = predict_functional_impact(mutant, seed=seed)
-            rows.append(
-                {
-                    "Position": idx + 1,
-                    "Ref": ref,
-                    "Alt": alt,
-                    "ImpactScore": score,
-                    "DeltaVsBaseline": score - baseline,
-                }
-            )
+rows = []
+for idx, ref in enumerate(sequence):
+for alt in bases:
+mutant = sequence[:idx] + alt + sequence[idx + 1:]
+score = predict_functional_impact(mutant, seed=seed)
+rows.append(
+{
+"Position": idx + 1,
+"Ref": ref,
+"Alt": alt,
+"ImpactScore": score,
+"DeltaVsBaseline": score - baseline,
+}
+)
 
-    return baseline, pd.DataFrame(rows)
+return baseline, pd.DataFrame(rows)
 
 
 def make_impact_matrix(scan_df: pd.DataFrame, sequence: str):
-    bases = ["A", "C", "G", "T"]
-    matrix = np.full((len(sequence), 4), np.nan, dtype=float)
+bases = ["A", "C", "G", "T"]
+matrix = np.full((len(sequence), 4), np.nan, dtype=float)
 
-    for _, row in scan_df.iterrows():
-        p_idx = int(row["Position"]) - 1
-        b_idx = bases.index(row["Alt"])
-        matrix[p_idx, b_idx] = row["ImpactScore"]
+for _, row in scan_df.iterrows():
+p_idx = int(row["Position"]) - 1
+b_idx = bases.index(row["Alt"])
+matrix[p_idx, b_idx] = row["ImpactScore"]
 
-    return bases, matrix
+return bases, matrix
 
 
 def simple_offtarget_score(guide: str, reference: str, max_mismatches: int = 2) -> int:
-    """Count approximate off-target-like occurrences of guide in reference."""
-    count = 0
-    L = len(guide)
-    for i in range(max(0, len(reference) - L + 1)):
-        window = reference[i:i + L]
-        mismatches = sum(1 for a, b in zip(guide, window) if a != b)
-        if mismatches <= max_mismatches:
-            count += 1
-    return count
+"""Count approximate off-target-like occurrences of guide in reference."""
+count = 0
+L = len(guide)
+for i in range(max(0, len(reference) - L + 1)):
+window = reference[i:i + L]
+mismatches = sum(1 for a, b in zip(guide, window) if a != b)
+if mismatches <= max_mismatches:
+count += 1
+return count
 
 
 def find_crispr_guides(sequence: str):
-    """Find SpCas9-style candidate guides with NGG PAM and simple scoring."""
-    seq = sanitize_dna_sequence(sequence)
-    rows = []
-    for i in range(max(0, len(seq) - 23 + 1)):
-        window = seq[i:i + 23]
-        pam = window[20:23]
-        if len(pam) == 3 and pam[1:] == "GG":
-            guide = window[:20]
-            gc_pct = 100.0 * (guide.count("G") + guide.count("C")) / 20
-            offtarget_hits = simple_offtarget_score(guide, seq)
-            if 40 <= gc_pct <= 70 and offtarget_hits <= 2:
-                label = "High"
-            elif 35 <= gc_pct <= 75 and offtarget_hits <= 5:
-                label = "Medium"
-            else:
-                label = "Low"
-            rows.append(
-                {
-                    "Position": i,
-                    "Guide RNA": guide,
-                    "PAM": pam,
-                    "GC%": round(gc_pct, 1),
-                    "OffTargetHits(<=2mm)": offtarget_hits,
-                    "Score": label,
-                }
-            )
-    return pd.DataFrame(rows)
+"""Find SpCas9-style candidate guides with NGG PAM and simple scoring."""
+seq = sanitize_dna_sequence(sequence)
+rows = []
+for i in range(max(0, len(seq) - 23 + 1)):
+window = seq[i:i + 23]
+pam = window[20:23]
+if len(pam) == 3 and pam[1:] == "GG":
+guide = window[:20]
+gc_pct = 100.0 * (guide.count("G") + guide.count("C")) / 20
+offtarget_hits = simple_offtarget_score(guide, seq)
+if 40 <= gc_pct <= 70 and offtarget_hits <= 2:
+label = "High"
+elif 35 <= gc_pct <= 75 and offtarget_hits <= 5:
+label = "Medium"
+else:
+label = "Low"
+rows.append(
+{
+"Position": i,
+"Guide RNA": guide,
+"PAM": pam,
+"GC%": round(gc_pct, 1),
+"OffTargetHits(<=2mm)": offtarget_hits,
+"Score": label,
+}
+)
+return pd.DataFrame(rows)
 
 
 # -----------------------------
 # Module 5 (Genome Alignment Explorer)
 # -----------------------------
 def needleman_wunsch_align(reference: str, query: str, match: int = 2, mismatch: int = -1, gap: int = -2):
-    reference = sanitize_dna_sequence(reference)
-    query = sanitize_dna_sequence(query)
-    n, m = len(reference), len(query)
-    if n == 0 or m == 0:
-        return "", "", 0
+reference = sanitize_dna_sequence(reference)
+query = sanitize_dna_sequence(query)
+n, m = len(reference), len(query)
+if n == 0 or m == 0:
+return "", "", 0
 
-    score = np.zeros((n + 1, m + 1), dtype=int)
-    trace = np.zeros((n + 1, m + 1), dtype=int)
+score = np.zeros((n + 1, m + 1), dtype=int)
+trace = np.zeros((n + 1, m + 1), dtype=int)
 
-    for i in range(1, n + 1):
-        score[i, 0] = i * gap
-        trace[i, 0] = 1
-    for j in range(1, m + 1):
-        score[0, j] = j * gap
-        trace[0, j] = 2
+for i in range(1, n + 1):
+score[i, 0] = i * gap
+trace[i, 0] = 1
+for j in range(1, m + 1):
+score[0, j] = j * gap
+trace[0, j] = 2
 
-    for i in range(1, n + 1):
-        for j in range(1, m + 1):
-            diag = score[i - 1, j - 1] + (match if reference[i - 1] == query[j - 1] else mismatch)
-            up = score[i - 1, j] + gap
-            left = score[i, j - 1] + gap
-            best = max(diag, up, left)
-            score[i, j] = best
-            trace[i, j] = 0 if best == diag else (1 if best == up else 2)
+for i in range(1, n + 1):
+for j in range(1, m + 1):
+diag = score[i - 1, j - 1] + (match if reference[i - 1] == query[j - 1] else mismatch)
+up = score[i - 1, j] + gap
+left = score[i, j - 1] + gap
+best = max(diag, up, left)
+score[i, j] = best
+trace[i, j] = 0 if best == diag else (1 if best == up else 2)
 
-    align_ref = []
-    align_query = []
-    i, j = n, m
-    while i > 0 or j > 0:
-        if i > 0 and j > 0 and trace[i, j] == 0:
-            align_ref.append(reference[i - 1])
-            align_query.append(query[j - 1])
-            i -= 1
-            j -= 1
-        elif i > 0 and (j == 0 or trace[i, j] == 1):
-            align_ref.append(reference[i - 1])
-            align_query.append("-")
-            i -= 1
-        else:
-            align_ref.append("-")
-            align_query.append(query[j - 1])
-            j -= 1
+align_ref = []
+align_query = []
+i, j = n, m
+while i > 0 or j > 0:
+if i > 0 and j > 0 and trace[i, j] == 0:
+align_ref.append(reference[i - 1])
+align_query.append(query[j - 1])
+i -= 1
+j -= 1
+elif i > 0 and (j == 0 or trace[i, j] == 1):
+align_ref.append(reference[i - 1])
+align_query.append("-")
+i -= 1
+else:
+align_ref.append("-")
+align_query.append(query[j - 1])
+j -= 1
 
-    return "".join(reversed(align_ref)), "".join(reversed(align_query)), int(score[n, m])
+return "".join(reversed(align_ref)), "".join(reversed(align_query)), int(score[n, m])
 
 
 def alignment_annotation(aligned_ref: str, aligned_query: str):
-    markers = []
-    mismatches = 0
-    for a, b in zip(aligned_ref, aligned_query):
-        if a == b:
-            markers.append("|")
-        elif a == "-" or b == "-":
-            markers.append(" ")
-            mismatches += 1
-        else:
-            markers.append("x")
-            mismatches += 1
-    return "".join(markers), mismatches
+markers = []
+mismatches = 0
+for a, b in zip(aligned_ref, aligned_query):
+if a == b:
+markers.append("|")
+elif a == "-" or b == "-":
+markers.append(" ")
+mismatches += 1
+else:
+markers.append("x")
+mismatches += 1
+return "".join(markers), mismatches
 
 
 def map_reads_to_reference(reference: str, reads):
-    rows = []
-    for idx, read in enumerate(reads, start=1):
-        a_ref, a_read, score = needleman_wunsch_align(reference, read)
-        marker, mismatches = alignment_annotation(a_ref, a_read)
-        rows.append(
-            {
-                "ReadID": f"Read_{idx}",
-                "Read": read,
-                "Score": score,
-                "Mismatches": mismatches,
-                "AlignedReference": a_ref,
-                "AlignmentMarker": marker,
-                "AlignedRead": a_read,
-            }
-        )
-    return pd.DataFrame(rows)
+rows = []
+for idx, read in enumerate(reads, start=1):
+a_ref, a_read, score = needleman_wunsch_align(reference, read)
+marker, mismatches = alignment_annotation(a_ref, a_read)
+rows.append(
+{
+"ReadID": f"Read_{idx}",
+"Read": read,
+"Score": score,
+"Mismatches": mismatches,
+"AlignedReference": a_ref,
+"AlignmentMarker": marker,
+"AlignedRead": a_read,
+}
+)
+return pd.DataFrame(rows)
 
 
 # -----------------------------
@@ -535,28 +535,28 @@ HYDROPHOBIC_AA = set("AILMFWYV")
 
 
 def translate_dna_to_protein(sequence: str):
-    seq = sanitize_dna_sequence(sequence)
-    protein = []
-    for i in range(0, len(seq) - 2, 3):
-        codon = seq[i:i + 3]
-        protein.append(CODON_TABLE.get(codon, "X"))
-    return "".join(protein)
+seq = sanitize_dna_sequence(sequence)
+protein = []
+for i in range(0, len(seq) - 2, 3):
+codon = seq[i:i + 3]
+protein.append(CODON_TABLE.get(codon, "X"))
+return "".join(protein)
 
 
 def analyze_protein_properties(protein: str):
-    aa = [x for x in protein if x.isalpha()]
-    if not aa:
-        return {"Length": 0, "MolecularWeight_kDa": 0.0, "HydrophobicPct": 0.0}, pd.DataFrame(columns=["AminoAcid", "Count"])
+aa = [x for x in protein if x.isalpha()]
+if not aa:
+return {"Length": 0, "MolecularWeight_kDa": 0.0, "HydrophobicPct": 0.0}, pd.DataFrame(columns=["AminoAcid", "Count"])
 
-    mw = sum(AMINO_ACID_WEIGHTS.get(x, 0.0) for x in aa) / 1000.0
-    hydrophobic_pct = 100.0 * sum(1 for x in aa if x in HYDROPHOBIC_AA) / len(aa)
-    comp = pd.Series(aa).value_counts().reset_index()
-    comp.columns = ["AminoAcid", "Count"]
-    return {
-        "Length": len(aa),
-        "MolecularWeight_kDa": round(mw, 2),
-        "HydrophobicPct": round(hydrophobic_pct, 1),
-    }, comp
+mw = sum(AMINO_ACID_WEIGHTS.get(x, 0.0) for x in aa) / 1000.0
+hydrophobic_pct = 100.0 * sum(1 for x in aa if x in HYDROPHOBIC_AA) / len(aa)
+comp = pd.Series(aa).value_counts().reset_index()
+comp.columns = ["AminoAcid", "Count"]
+return {
+"Length": len(aa),
+"MolecularWeight_kDa": round(mw, 2),
+"HydrophobicPct": round(hydrophobic_pct, 1),
+}, comp
 
 
 # BLOSUM62 substitution scores for mutation-impact heuristics
@@ -587,243 +587,243 @@ PROTEIN_AA_ORDER = list("ACDEFGHIKLMNPQRSTVWY")
 
 
 def parse_mutation_notation(mutation: str):
-    m = mutation.strip().upper()
-    if len(m) < 3:
-        return None
-    ref = m[0]
-    alt = m[-1]
-    pos_txt = m[1:-1]
-    if not pos_txt.isdigit():
-        return None
-    return ref, int(pos_txt), alt
+m = mutation.strip().upper()
+if len(m) < 3:
+return None
+ref = m[0]
+alt = m[-1]
+pos_txt = m[1:-1]
+if not pos_txt.isdigit():
+return None
+return ref, int(pos_txt), alt
 
 
 def predict_protein_mutation_impact(protein_sequence: str, mutation: str):
-    seq = protein_sequence.strip().upper()
-    parsed = parse_mutation_notation(mutation)
-    if parsed is None:
-        return {"error": "Mutation must be in format like F5L."}
+seq = protein_sequence.strip().upper()
+parsed = parse_mutation_notation(mutation)
+if parsed is None:
+return {"error": "Mutation must be in format like F5L."}
 
-    ref, pos, alt = parsed
-    if pos < 1 or pos > len(seq):
-        return {"error": f"Position out of range (1-{len(seq)})."}
-    if ref not in BLOSUM62 or alt not in BLOSUM62:
-        return {"error": "Only standard amino acids are supported."}
+ref, pos, alt = parsed
+if pos < 1 or pos > len(seq):
+return {"error": f"Position out of range (1-{len(seq)})."}
+if ref not in BLOSUM62 or alt not in BLOSUM62:
+return {"error": "Only standard amino acids are supported."}
 
-    observed = seq[pos - 1]
-    if observed != ref:
-        return {"error": f"Reference mismatch at position {pos}: sequence has {observed}, not {ref}."}
+observed = seq[pos - 1]
+if observed != ref:
+return {"error": f"Reference mismatch at position {pos}: sequence has {observed}, not {ref}."}
 
-    score = BLOSUM62[ref][alt]
-    conservation = round((score + 4) / 15, 3)
-    if score <= -3:
-        impact = "High"
-    elif score < 0:
-        impact = "Medium"
-    else:
-        impact = "Low"
+score = BLOSUM62[ref][alt]
+conservation = round((score + 4) / 15, 3)
+if score <= -3:
+impact = "High"
+elif score < 0:
+impact = "Medium"
+else:
+impact = "Low"
 
-    return {
-        "Position": pos,
-        "OriginalAA": ref,
-        "MutatedAA": alt,
-        "BLOSUM62Score": score,
-        "ConservationScore": conservation,
-        "PredictedImpact": impact,
-    }
+return {
+"Position": pos,
+"OriginalAA": ref,
+"MutatedAA": alt,
+"BLOSUM62Score": score,
+"ConservationScore": conservation,
+"PredictedImpact": impact,
+}
 
 
 def build_protein_mutation_landscape(protein_sequence: str):
-    seq = protein_sequence.strip().upper()
-    valid_positions = [aa for aa in seq if aa in BLOSUM62]
-    if not valid_positions:
-        return PROTEIN_AA_ORDER, np.zeros((len(PROTEIN_AA_ORDER), 0), dtype=float)
+seq = protein_sequence.strip().upper()
+valid_positions = [aa for aa in seq if aa in BLOSUM62]
+if not valid_positions:
+return PROTEIN_AA_ORDER, np.zeros((len(PROTEIN_AA_ORDER), 0), dtype=float)
 
-    matrix = np.zeros((len(PROTEIN_AA_ORDER), len(valid_positions)), dtype=float)
-    for j, ref in enumerate(valid_positions):
-        for i, alt in enumerate(PROTEIN_AA_ORDER):
-            matrix[i, j] = BLOSUM62[ref][alt]
-    return PROTEIN_AA_ORDER, matrix
+matrix = np.zeros((len(PROTEIN_AA_ORDER), len(valid_positions)), dtype=float)
+for j, ref in enumerate(valid_positions):
+for i, alt in enumerate(PROTEIN_AA_ORDER):
+matrix[i, j] = BLOSUM62[ref][alt]
+return PROTEIN_AA_ORDER, matrix
 
 
 # -----------------------------
 # Protein Structure Viewer Functions
 # -----------------------------
 def update_protein_id_from_example():
-    """Callback function to update protein ID when example is selected."""
-    example_proteins = {
-        "p53 (Tumor suppressor)": "P04637",
-        "Hemoglobin": "1A3N", 
-        "Lysozyme": "1AKI",
-        "DNA Polymerase": "3K5A",
-        "Insulin": "1ZNJ",
-        "Myoglobin": "1MBO",
-        "Carbonic Anhydrase": "2CBA"
-    }
+"""Callback function to update protein ID when example is selected."""
+example_proteins = {
+"p53 (Tumor suppressor)": "P04637",
+"Hemoglobin": "1A3N", 
+"Lysozyme": "1AKI",
+"DNA Polymerase": "3K5A",
+"Insulin": "1ZNJ",
+"Myoglobin": "1MBO",
+"Carbonic Anhydrase": "2CBA"
+}
 
-    selected_example = st.session_state.get("module6_example_protein", "None")
-    if selected_example != "None" and selected_example in example_proteins:
-        st.session_state.module6_structure_id = example_proteins[selected_example]
+selected_example = st.session_state.get("module6_example_protein", "None")
+if selected_example != "None" and selected_example in example_proteins:
+st.session_state.module6_structure_id = example_proteins[selected_example]
 
 
 def fetch_pdb_data(pdb_id: str):
-    """Fetch PDB data from RCSB or AlphaFold database."""
-    pdb_id = pdb_id.upper().strip()
+"""Fetch PDB data from RCSB or AlphaFold database."""
+pdb_id = pdb_id.upper().strip()
 
-    # Try RCSB first for standard PDB IDs
-    rcsb_url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
-    try:
-        response = requests.get(rcsb_url, timeout=10)
-        if response.status_code == 200:
-            return response.text, "rcsb"
-    except:
-        pass
+# Try RCSB first for standard PDB IDs
+rcsb_url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
+try:
+response = requests.get(rcsb_url, timeout=10)
+if response.status_code == 200:
+return response.text, "rcsb"
+except:
+pass
 
-    # Try AlphaFold for UniProt IDs
-    alphafold_url = f"https://alphafold.ebi.ac.uk/files/AF-{pdb_id}-F1-model_v4.pdb"
-    try:
-        response = requests.get(alphafold_url, timeout=10)
-        if response.status_code == 200:
-            return response.text, "alphafold"
-    except:
-        pass
+# Try AlphaFold for UniProt IDs
+alphafold_url = f"https://alphafold.ebi.ac.uk/files/AF-{pdb_id}-F1-model_v4.pdb"
+try:
+response = requests.get(alphafold_url, timeout=10)
+if response.status_code == 200:
+return response.text, "alphafold"
+except:
+pass
 
-    return None, None
+return None, None
 
 
 def create_3d_structure_viewer(pdb_data: str, style: str = "cartoon"):
-    """Create interactive 3D protein structure viewer."""
-    # Create 3Dmol viewer
-    viewer = py3Dmol.view(width=800, height=600)
+"""Create interactive 3D protein structure viewer."""
+# Create 3Dmol viewer
+viewer = py3Dmol.view(width=800, height=600)
 
-    # Add PDB data
-    viewer.addModel(pdb_data, "pdb")
+# Add PDB data
+viewer.addModel(pdb_data, "pdb")
 
-    # Set style based on selection
-    if style == "cartoon":
-        viewer.setStyle({'cartoon': {'color': 'spectrum'}})
-    elif style == "stick":
-        viewer.setStyle({'stick': {'colorscheme': 'Jmol'}})
-    elif style == "sphere":
-        viewer.setStyle({'sphere': {'colorscheme': 'Jmol'}})
-    elif style == "line":
-        viewer.setStyle({'line': {'colorscheme': 'Jmol'}})
+# Set style based on selection
+if style == "cartoon":
+viewer.setStyle({'cartoon': {'color': 'spectrum'}})
+elif style == "stick":
+viewer.setStyle({'stick': {'colorscheme': 'Jmol'}})
+elif style == "sphere":
+viewer.setStyle({'sphere': {'colorscheme': 'Jmol'}})
+elif style == "line":
+viewer.setStyle({'line': {'colorscheme': 'Jmol'}})
 
-    # Zoom to fit
-    viewer.zoomTo()
+# Zoom to fit
+viewer.zoomTo()
 
-    # Set background
-    viewer.setBackgroundColor('#f0f0f0')
+# Set background
+viewer.setBackgroundColor('#f0f0f0')
 
-    return viewer
+return viewer
 
 
 def render_structure_in_streamlit(viewer):
-    """Render 3Dmol viewer in Streamlit."""
-    # Convert viewer to HTML
-    viewer_html = viewer._make_html()
+"""Render 3Dmol viewer in Streamlit."""
+# Convert viewer to HTML
+viewer_html = viewer._make_html()
 
-    # Display in Streamlit
-    st.components.v1.html(viewer_html, height=600, width=800)
+# Display in Streamlit
+st.components.v1.html(viewer_html, height=600, width=800)
 
 
 def get_protein_info(uniprot_id: str):
-    """Get basic protein information from UniProt."""
-    try:
-        url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}.json"
-        response = requests.get(url, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            return {
-                'name': data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown'),
-                'length': data.get('sequence', {}).get('length', 0),
-                'mass': data.get('sequence', {}).get('mass', 0),
-                'organism': data.get('organism', {}).get('scientificName', 'Unknown'),
-                'function': data.get('comments', [{}])[0].get('texts', [{}])[0].get('value', 'No functional description available') if data.get('comments') else 'No functional description available'
-            }
-    except:
-        pass
-    return None
+"""Get basic protein information from UniProt."""
+try:
+url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}.json"
+response = requests.get(url, timeout=10)
+if response.status_code == 200:
+data = response.json()
+return {
+'name': data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown'),
+'length': data.get('sequence', {}).get('length', 0),
+'mass': data.get('sequence', {}).get('mass', 0),
+'organism': data.get('organism', {}).get('scientificName', 'Unknown'),
+'function': data.get('comments', [{}])[0].get('texts', [{}])[0].get('value', 'No functional description available') if data.get('comments') else 'No functional description available'
+}
+except:
+pass
+return None
 
 
 # -----------------------------
 # Module 8 (Genome Browser Functions)
 # -----------------------------
 def create_genome_browser_tracks(dna_sequence: str):
-    """Create multi-track genome browser data from DNA sequence."""
-    seq_len = len(dna_sequence)
-    positions = list(range(1, seq_len + 1))
+"""Create multi-track genome browser data from DNA sequence."""
+seq_len = len(dna_sequence)
+positions = list(range(1, seq_len + 1))
 
-    # Track 1: DNA Sequence (numeric representation)
-    dna_track = []
-    nucleotide_map = {'A': 1, 'C': 2, 'G': 3, 'T': 4}
-    for base in dna_sequence.upper():
-        dna_track.append(nucleotide_map.get(base, 0))
+# Track 1: DNA Sequence (numeric representation)
+dna_track = []
+nucleotide_map = {'A': 1, 'C': 2, 'G': 3, 'T': 4}
+for base in dna_sequence.upper():
+dna_track.append(nucleotide_map.get(base, 0))
 
-    # Track 2: Variant Impact Scores
-    variant_scores = []
-    for i in range(seq_len):
-        # Create a simple variant at each position and predict impact
-        test_seq = dna_sequence[:i] + 'A' + dna_sequence[i+1:]
-        if len(test_seq) == len(dna_sequence):
-            try:
-                score = predict_functional_impact(test_seq[:min(90, len(test_seq))])
-                variant_scores.append(score)
-            except:
-                variant_scores.append(0.5)
-        else:
-            variant_scores.append(0.5)
+# Track 2: Variant Impact Scores
+variant_scores = []
+for i in range(seq_len):
+# Create a simple variant at each position and predict impact
+test_seq = dna_sequence[:i] + 'A' + dna_sequence[i+1:]
+if len(test_seq) == len(dna_sequence):
+try:
+score = predict_functional_impact(test_seq[:min(90, len(test_seq))])
+variant_scores.append(score)
+except:
+variant_scores.append(0.5)
+else:
+variant_scores.append(0.5)
 
-    # Track 3: CRISPR Guide Locations
-    crispr_track = [0] * seq_len
-    guides_df = find_crispr_guides(dna_sequence)
-    for _, guide in guides_df.iterrows():
-        start = guide['Position']
-        end = start + 23  # Full guide + PAM
-        if end <= seq_len:
-            for pos in range(start, min(end, seq_len)):
-                crispr_track[pos] = guide['GC%'] / 100.0  # Normalize GC content
+# Track 3: CRISPR Guide Locations
+crispr_track = [0] * seq_len
+guides_df = find_crispr_guides(dna_sequence)
+for _, guide in guides_df.iterrows():
+start = guide['Position']
+end = start + 23  # Full guide + PAM
+if end <= seq_len:
+for pos in range(start, min(end, seq_len)):
+crispr_track[pos] = guide['GC%'] / 100.0  # Normalize GC content
 
-    # Track 4: Gene Annotation (simulated ORFs)
-    gene_track = [0] * seq_len
-    # Find potential ORFs (start codon ATG to stop codons)
-    start_codons = []
-    for i in range(seq_len - 2):
-        if dna_sequence[i:i+3].upper() == 'ATG':
-            start_codons.append(i)
+# Track 4: Gene Annotation (simulated ORFs)
+gene_track = [0] * seq_len
+# Find potential ORFs (start codon ATG to stop codons)
+start_codons = []
+for i in range(seq_len - 2):
+if dna_sequence[i:i+3].upper() == 'ATG':
+start_codons.append(i)
 
-    # Extend ORFs until stop codon or end
-    for start in start_codons:
-        for end in range(start + 3, seq_len - 2, 3):
-            codon = dna_sequence[end:end+3].upper()
-            if codon in ['TAA', 'TAG', 'TGA']:
-                # Mark this ORF
-                for pos in range(start, min(end + 3, seq_len)):
-                    gene_track[pos] = 1
-                break
+# Extend ORFs until stop codon or end
+for start in start_codons:
+for end in range(start + 3, seq_len - 2, 3):
+codon = dna_sequence[end:end+3].upper()
+if codon in ['TAA', 'TAG', 'TGA']:
+# Mark this ORF
+for pos in range(start, min(end + 3, seq_len)):
+gene_track[pos] = 1
+break
 
-    # Track 5: Protein Coding Regions (translation potential)
-    protein_track = [0] * seq_len
-    # Mark regions that could be translated (in-frame)
-    for i in range(0, seq_len - 2, 3):
-        codon = dna_sequence[i:i+3].upper()
-        if codon in CODON_TABLE and CODON_TABLE[codon] != 'X':
-            for pos in range(i, min(i + 3, seq_len)):
-                protein_track[pos] = 1
+# Track 5: Protein Coding Regions (translation potential)
+protein_track = [0] * seq_len
+# Mark regions that could be translated (in-frame)
+for i in range(0, seq_len - 2, 3):
+codon = dna_sequence[i:i+3].upper()
+if codon in CODON_TABLE and CODON_TABLE[codon] != 'X':
+for pos in range(i, min(i + 3, seq_len)):
+protein_track[pos] = 1
 
-    return {
-        'positions': positions,
-        'dna_sequence': dna_track,
-        'variant_impact': variant_scores,
-        'crispr_guides': crispr_track,
-        'gene_annotation': gene_track,
-        'protein_coding': protein_track
-    }
+return {
+'positions': positions,
+'dna_sequence': dna_track,
+'variant_impact': variant_scores,
+'crispr_guides': crispr_track,
+'gene_annotation': gene_track,
+'protein_coding': protein_track
+}
 
 
 def create_genome_browser_figure(track_data: dict):
-    """Create multi-track genome browser visualization using Plotly subplots."""
-    positions = track_data['positions']
+"""Create multi-track genome browser visualization using Plotly subplots."""
+positions = track_data['positions']
 
 # Validate data
 if not positions or len(positions) == 0:
@@ -944,169 +944,169 @@ return fig
 
 
 def export_track_data_csv(track_data: dict, dna_sequence: str):
-    """Export track data as CSV."""
-    import io
-    import csv
+"""Export track data as CSV."""
+import io
+import csv
 
-    output = io.StringIO()
-    writer = csv.writer(output)
+output = io.StringIO()
+writer = csv.writer(output)
 
-    # Header
-    writer.writerow(['Position', 'Base', 'Variant_Impact', 'CRISPR_Score', 'Gene_Region', 'Protein_Coding'])
+# Header
+writer.writerow(['Position', 'Base', 'Variant_Impact', 'CRISPR_Score', 'Gene_Region', 'Protein_Coding'])
 
-    # Data rows
-    for i, pos in enumerate(track_data['positions']):
-        base = dna_sequence[i].upper()
-        writer.writerow([
-            pos,
-            base,
-            f"{track_data['variant_impact'][i]:.3f}",
-            f"{track_data['crispr_guides'][i]:.2f}",
-            track_data['gene_annotation'][i],
-            track_data['protein_coding'][i]
-        ])
+# Data rows
+for i, pos in enumerate(track_data['positions']):
+base = dna_sequence[i].upper()
+writer.writerow([
+pos,
+base,
+f"{track_data['variant_impact'][i]:.3f}",
+f"{track_data['crispr_guides'][i]:.2f}",
+track_data['gene_annotation'][i],
+track_data['protein_coding'][i]
+])
 
-    return output.getvalue()
+return output.getvalue()
 
 
 # -----------------------------
 # Module 7 (Genome Annotation Explorer)
 # -----------------------------
 def parse_genome_annotations(annotation_text: str):
-    """Parse genome annotation data from text input."""
-    annotations = []
-    lines = annotation_text.strip().split('\n')
+"""Parse genome annotation data from text input."""
+annotations = []
+lines = annotation_text.strip().split('\n')
 
-    for line in lines:
-        if not line.strip():
-            continue
+for line in lines:
+if not line.strip():
+continue
 
-        parts = line.strip().split('\t')
-        if len(parts) >= 3:
-            try:
-                start = int(parts[0]) - 1  # Convert to 0-based
-                end = int(parts[1])
-                feature_type = parts[2]
-                description = parts[3] if len(parts) > 3 else ""
+parts = line.strip().split('\t')
+if len(parts) >= 3:
+try:
+start = int(parts[0]) - 1  # Convert to 0-based
+end = int(parts[1])
+feature_type = parts[2]
+description = parts[3] if len(parts) > 3 else ""
 
-                annotations.append({
-                    'start': start,
-                    'end': end,
-                    'type': feature_type,
-                    'description': description,
-                    'y_position': len(annotations)  # Stack annotations vertically
-                })
-            except ValueError:
-                continue
+annotations.append({
+'start': start,
+'end': end,
+'type': feature_type,
+'description': description,
+'y_position': len(annotations)  # Stack annotations vertically
+})
+except ValueError:
+continue
 
-    return annotations
+return annotations
 
 
 def create_genome_annotation_viewer(sequence: str, annotations: list):
-    """Create interactive genome annotation viewer using Plotly."""
-    fig = go.Figure()
+"""Create interactive genome annotation viewer using Plotly."""
+fig = go.Figure()
 
-    # Add sequence as background track
-    seq_length = len(sequence)
-    fig.add_shape(
-        type="rect",
-        x0=0, x1=seq_length,
-        y0=-0.5, y1=0.5,
-        fillcolor="lightgray",
-        line=dict(color="gray", width=1)
-    )
+# Add sequence as background track
+seq_length = len(sequence)
+fig.add_shape(
+type="rect",
+x0=0, x1=seq_length,
+y0=-0.5, y1=0.5,
+fillcolor="lightgray",
+line=dict(color="gray", width=1)
+)
 
-    # Add annotations as colored tracks
-    colors = {
-        'Gene': '#1f77b4',
-        'Exon': '#ff7f0e', 
-        'Promoter': '#2ca02c',
-        'Regulatory': '#d62728',
-        'SNP': '#9467bd',
-        'CRISPR': '#8c564b',
-        'Variant': '#e377c2'
-    }
+# Add annotations as colored tracks
+colors = {
+'Gene': '#1f77b4',
+'Exon': '#ff7f0e', 
+'Promoter': '#2ca02c',
+'Regulatory': '#d62728',
+'SNP': '#9467bd',
+'CRISPR': '#8c564b',
+'Variant': '#e377c2'
+}
 
-    for i, annotation in enumerate(annotations):
-        color = colors.get(annotation['type'], '#7f7f7f')
+for i, annotation in enumerate(annotations):
+color = colors.get(annotation['type'], '#7f7f7f')
 
-        # Add annotation track
-        fig.add_shape(
-            type="rect",
-            x0=annotation['start'], x1=annotation['end'],
-            y0=annotation['y_position'] + 0.5, 
-            y1=annotation['y_position'] + 1.5,
-            fillcolor=color,
-            line=dict(color=color, width=1),
-            opacity=0.7
-        )
+# Add annotation track
+fig.add_shape(
+type="rect",
+x0=annotation['start'], x1=annotation['end'],
+y0=annotation['y_position'] + 0.5, 
+y1=annotation['y_position'] + 1.5,
+fillcolor=color,
+line=dict(color=color, width=1),
+opacity=0.7
+)
 
-        # Add annotation label
-        fig.add_annotation(
-            x=(annotation['start'] + annotation['end']) / 2,
-            y=annotation['y_position'] + 1,
-            text=f"{annotation['type']}: {annotation['description']}",
-            showarrow=False,
-            font=dict(size=10),
-            textangle=0
-        )
+# Add annotation label
+fig.add_annotation(
+x=(annotation['start'] + annotation['end']) / 2,
+y=annotation['y_position'] + 1,
+text=f"{annotation['type']}: {annotation['description']}",
+showarrow=False,
+font=dict(size=10),
+textangle=0
+)
 
-    # Add position markers
-    position_step = max(1, seq_length // 10)
-    positions = list(range(0, seq_length + 1, position_step))
+# Add position markers
+position_step = max(1, seq_length // 10)
+positions = list(range(0, seq_length + 1, position_step))
 
-    fig.update_xaxes(
-        title="Genomic Position",
-        tickmode='array',
-        tickvals=positions,
-        ticktext=[str(p + 1) for p in positions],  # Convert to 1-based for display
-        showgrid=True,
-        gridwidth=1,
-        gridcolor='lightgray'
-    )
+fig.update_xaxes(
+title="Genomic Position",
+tickmode='array',
+tickvals=positions,
+ticktext=[str(p + 1) for p in positions],  # Convert to 1-based for display
+showgrid=True,
+gridwidth=1,
+gridcolor='lightgray'
+)
 
-    fig.update_yaxes(
-        title="Annotation Tracks",
-        showgrid=False,
-        zeroline=False,
-        showticklabels=False
-    )
+fig.update_yaxes(
+title="Annotation Tracks",
+showgrid=False,
+zeroline=False,
+showticklabels=False
+)
 
-    fig.update_layout(
-        title="Genome Annotation Viewer",
-        height=400,
-        showlegend=False,
-        hovermode='closest',
-        margin=dict(l=50, r=50, t=50, b=50)
-    )
+fig.update_layout(
+title="Genome Annotation Viewer",
+height=400,
+showlegend=False,
+hovermode='closest',
+margin=dict(l=50, r=50, t=50, b=50)
+)
 
-    return fig
+return fig
 
 
 def generate_sample_annotations(sequence_length: int):
-    """Generate sample annotations for demonstration."""
-    sample_annotations = [
-        "1\t100\tGene\tSample Gene 1",
-        "20\t40\tExon\tExon 1", 
-        "60\t80\tExon\tExon 2",
-        "1\t20\tPromoter\tPromoter Region",
-        "101\t150\tGene\tSample Gene 2",
-        "110\t130\tExon\tExon 3",
-        "140\t148\tExon\tExon 4",
-        "101\t120\tPromoter\tPromoter Region 2",
-        "50\t50\tSNP\tVariant at position 50",
-        "75\t75\tSNP\tVariant at position 75",
-        "125\t125\tSNP\tVariant at position 125"
-    ]
+"""Generate sample annotations for demonstration."""
+sample_annotations = [
+"1\t100\tGene\tSample Gene 1",
+"20\t40\tExon\tExon 1", 
+"60\t80\tExon\tExon 2",
+"1\t20\tPromoter\tPromoter Region",
+"101\t150\tGene\tSample Gene 2",
+"110\t130\tExon\tExon 3",
+"140\t148\tExon\tExon 4",
+"101\t120\tPromoter\tPromoter Region 2",
+"50\t50\tSNP\tVariant at position 50",
+"75\t75\tSNP\tVariant at position 75",
+"125\t125\tSNP\tVariant at position 125"
+]
 
-    # Filter annotations to fit within sequence length
-    filtered = []
-    for line in sample_annotations:
-        parts = line.split('\t')
-        if int(parts[1]) <= sequence_length:
-            filtered.append(line)
+# Filter annotations to fit within sequence length
+filtered = []
+for line in sample_annotations:
+parts = line.split('\t')
+if int(parts[1]) <= sequence_length:
+filtered.append(line)
 
-    return '\n'.join(filtered)
+return '\n'.join(filtered)
 
 
 # -----------------------------
