@@ -2354,7 +2354,7 @@ elif page == "Module 7: Genome Annotation Explorer":
     with col3:
         if st.button("Generate Gene Annotations", key="module7_generate_genes"):
             clean_seq = sanitize_dna_sequence(sequence_input)
-               """Create multi-track genome browser visualization using Plotly subplots."""
+            """Create multi-track genome browser visualization using Plotly subplots."""
     positions = track_data['positions']
 
     # Validate data
