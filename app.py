@@ -9,6 +9,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 import stmol
 import py3Dmol
@@ -821,103 +822,123 @@ def create_genome_browser_tracks(dna_sequence: str):
 
 
 def create_genome_browser_figure(track_data: dict):
-    """Create multi-track genome browser visualization using Plotly."""
+    """Create multi-track genome browser visualization using Plotly subplots."""
     positions = track_data['positions']
-    
+
     # Validate data
     if not positions or len(positions) == 0:
-        # Create empty figure with message
         fig = go.Figure()
         fig.add_annotation(
             text="No data to display",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(size=20)
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
+            font=dict(size=20),
         )
         fig.update_layout(height=400)
         return fig
-    
-    # Create figure with proper layout first
-    fig = go.Figure()
-    
-    # Track 1: DNA Sequence - simplified
-    fig.add_trace(go.Heatmap(
-        z=[track_data['dna_sequence']],
-        x=positions,
-        y=["DNA Sequence"],
-        colorscale="Viridis",
-        showscale=False,
-        hovertemplate='Position: %{x}<br>Base: %{z}<extra></extra>'
-    ))
-    
-    # Track 2: Variant Impact - simplified
-    fig.add_trace(go.Heatmap(
-        z=[track_data['variant_impact']],
-        x=positions,
-        y=["Variant Impact"],
-        colorscale="Reds",
-        showscale=False,
-        hovertemplate='Position: %{x}<br>Impact Score: %{z:.3f}<extra></extra>'
-    ))
-    
-    # Track 3: CRISPR Guides - simplified
-    fig.add_trace(go.Heatmap(
-        z=[track_data['crispr_guides']],
-        x=positions,
-        y=["CRISPR Guides"],
-        colorscale="Blues",
-        showscale=False,
-        hovertemplate='Position: %{x}<br>CRISPR Score: %{z:.2f}<extra></extra>'
-    ))
-    
-    # Track 4: Gene Annotation - simplified
-    fig.add_trace(go.Heatmap(
-        z=[track_data['gene_annotation']],
-        x=positions,
-        y=["Gene Annotation"],
-        colorscale="Greens",
-        showscale=False,
-        hovertemplate='Position: %{x}<br>Gene Region: %{z}<extra></extra>'
-    ))
-    
-    # Track 5: Protein Coding - simplified
-    fig.add_trace(go.Heatmap(
-        z=[track_data['protein_coding']],
-        x=positions,
-        y=["Protein Coding"],
-        colorscale="Purples",
-        showscale=False,
-        hovertemplate='Position: %{x}<br>Coding Region: %{z}<extra></extra>'
-    ))
-    
-    # Ensure enough vertical space so all 5 tracks are visible
-    track_count = 5
-    fig_height = max(800, 150 * track_count)
+
+    # Create subplots (5 rows, 1 column)
+    fig = make_subplots(
+        rows=5,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.08,
+        subplot_titles=(
+            "DNA Sequence",
+            "Variant Impact",
+            "CRISPR Guides",
+            "Gene Annotation",
+            "Protein Coding",
+        ),
+    )
+
+    # Track 1: DNA Sequence
+    fig.add_trace(
+        go.Heatmap(
+            z=[track_data['dna_sequence']],
+            x=positions,
+            y=[""],
+            colorscale="Viridis",
+            showscale=False,
+            hovertemplate='Position: %{x}<br>Base Value: %{z}<extra></extra>',
+        ),
+        row=1,
+        col=1,
+    )
+
+    # Track 2: Variant Impact
+    fig.add_trace(
+        go.Heatmap(
+            z=[track_data['variant_impact']],
+            x=positions,
+            y=[""],
+            colorscale="Reds",
+            showscale=False,
+            hovertemplate='Position: %{x}<br>Impact Score: %{z:.3f}<extra></extra>',
+        ),
+        row=2,
+        col=1,
+    )
+
+    # Track 3: CRISPR Guides
+    fig.add_trace(
+        go.Heatmap(
+            z=[track_data['crispr_guides']],
+            x=positions,
+            y=[""],
+            colorscale="Blues",
+            showscale=False,
+            hovertemplate='Position: %{x}<br>CRISPR Score: %{z:.2f}<extra></extra>',
+        ),
+        row=3,
+        col=1,
+    )
+
+    # Track 4: Gene Annotation
+    fig.add_trace(
+        go.Heatmap(
+            z=[track_data['gene_annotation']],
+            x=positions,
+            y=[""],
+            colorscale="Greens",
+            showscale=False,
+            hovertemplate='Position: %{x}<br>Gene Region: %{z}<extra></extra>',
+        ),
+        row=4,
+        col=1,
+    )
+
+    # Track 5: Protein Coding
+    fig.add_trace(
+        go.Heatmap(
+            z=[track_data['protein_coding']],
+            x=positions,
+            y=[""],
+            colorscale="Purples",
+            showscale=False,
+            hovertemplate='Position: %{x}<br>Coding Region: %{z}<extra></extra>',
+        ),
+        row=5,
+        col=1,
+    )
+
+    # Update layout for proper height and look
     fig.update_layout(
-        title="Genome Browser - Multi-Track Visualization",
-        height=fig_height,
-        width=None,  # Let Streamlit control width
-        margin=dict(l=80, r=40, t=60, b=60),
+        title_text="Interactive Genome Browser",
+        height=850,
         showlegend=False,
-        hovermode='closest'
+        margin=dict(l=40, r=40, t=80, b=40),
+        hovermode='closest',
     )
-    
-    # Simplified axis configuration
-    fig.update_xaxes(
-        title_text="Genomic Position",
-        showgrid=True,
-        gridwidth=1,
-        gridcolor='lightgray'
-    )
-    
-    fig.update_yaxes(
-        title_text="",
-        showgrid=False,
-        categoryorder='array',
-        categoryarray=["DNA Sequence", "Variant Impact", "CRISPR Guides", "Gene Annotation", "Protein Coding"],
-        automargin=True,
-        tickfont=dict(size=12)
-    )
+
+    # Add x-axis title only to the bottom track
+    fig.update_xaxes(title_text="Genomic Position", row=5, col=1)
+
+    # Hide y-axis tick labels since subplot titles are shown
+    fig.update_yaxes(showticklabels=False)
     
     return fig
 
