@@ -155,7 +155,7 @@ https://pangen-ai-yash.streamlit.app/
 ## 📂 Repository Structure
 
 ```text
-CD40-Immunosome-Tool/
+PanGen-AI-Suite/
 │
 ├── app.py
 ├── requirements.txt
