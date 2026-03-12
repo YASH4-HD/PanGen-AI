@@ -179,8 +179,8 @@ The platform does not require proprietary datasets.
 
 ## 📜 Citation
 If you use this suite in your research, please cite it as:
-> **Nama, Y. (2026).** *CD40-Immunosome: A Systems Modeling Framework for CD40–TRAF6 Signaling and CRISPR Synergy (Version 1.0.1)
-Zenodo. https://doi.org/10.5281/zenodo.18850205.* GitHub. [https://github.com/YASH4-HD/CD40-Immunosome-Tool](https://github.com/YASH4-HD/CD40-Immunosome-Tool)
+> **Nama, Y. (2026).** *PanGen-AI Suite: An Integrated Platform for Pangenome Analysis, AI Variant Prediction, and Genome Engineering. (Version 1.0.0)
+Zenodo. https://doi.org/10.5281/zenodo.18850205.* GitHub. [https://github.com/YASH4-HD/PanGen-AI](https://github.com/YASH4-HD/PanGen-AI)
 
 ---
 
@@ -194,6 +194,6 @@ Zenodo. https://doi.org/10.5281/zenodo.18850205.* GitHub. [https://github.com/YA
 🔗 **Connect & Verify:**
 *   **ORCID:** [0009-0003-3443-4413](https://orcid.org/0009-0003-3443-4413)
 *   **LinkedIn:** [Yashwant Nama](https://www.linkedin.com/in/yashwant-nama-232b2437b/)
-*   **Project Website:** [Streamlit Dashboard](https://cd40-immunosome-tool-yash.streamlit.app/)
+*   **Project Website:** [Streamlit Dashboard](https://pangen-ai-yash.streamlit.app/)
 
 
