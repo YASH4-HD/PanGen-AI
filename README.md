@@ -1,5 +1,5 @@
-# 🧬 CD40-Immunosome  
-### Systems Modeling Framework for CD40–TRAF6 Signaling and CRISPR Synergy
+# 🧬 PanGen-AI
+###An Integrated Deep Learning and Multi-Track Genome Visualization Framework for Pangenomic Data Analysis
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://cd40-immunosome-tool-yash.streamlit.app/)
@@ -12,16 +12,16 @@
 <p align="center">
   <img src="dashboard.png" width="900">
 </p>
-**CD40-Immunosome** is a reproducible computational systems immunology framework for modeling feedback-regulated CD40–TRAF6 signaling dynamics and CRISPR-mediated perturbations.
+** PanGen-AI Suite ** is an interactive computational genomics framework that integrates classical bioinformatics algorithms with modern deep learning approaches to explore genomic variation, pangenome structures, and CRISPR genome engineering strategies.
 
-The platform integrates:
+The platform provides a unified interface for:
 
-- Ordinary Differential Equation (ODE) modeling of receptor-proximal signaling  
-- SOCS1-mediated negative feedback simulation  
-- Monte Carlo robustness analysis  
-- Quantitative synergy scoring using area-under-the-curve (AUC) metrics  
-- Interactive Streamlit-based visualization dashboard  
-
+- Graph-based pangenome exploration
+- Deep learning–based variant impact prediction 
+- Genome compression and FM-index search algorithms
+- CRISPR guide RNA design
+- Interactive genome track visualization
+PanGen-AI aims to serve both as a research prototyping platform and an educational computational genomics toolkit.
 This repository accompanies the preprint:
 
 > **Nama, Y. (2026).**  
