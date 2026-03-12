@@ -64,7 +64,7 @@ Pangenome Graph Construction
    ↓
 Deep Learning Variant Prediction
    ↓
-Genome Compression + FM-Index Search
+Genome Compression & FM-Index Search
    ↓
 CRISPR Guide RNA Design
    ↓
