@@ -1,5 +1,5 @@
 # 🧬 PanGen-AI
-###An Integrated Deep Learning and Multi-Track Genome Visualization Framework for Pangenomic Data Analysis
+### An Integrated Deep Learning and Multi-Track Genome Visualization Framework for Pangenomic Data Analysis
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://cd40-immunosome-tool-yash.streamlit.app/)
