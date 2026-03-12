@@ -5,7 +5,7 @@
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://cd40-immunosome-tool-yash.streamlit.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18850205.svg)](https://doi.org/10.5281/zenodo.18850205)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18988911.svg)](https://doi.org/10.5281/zenodo.18988911)
 ---
 
 ## Overview
@@ -235,7 +235,7 @@ The platform does not require proprietary datasets.
 ## 📜 Citation
 If you use this suite in your research, please cite it as:
 > **Nama, Y. (2026).** *PanGen-AI Suite: An Integrated Platform for Pangenome Analysis, AI Variant Prediction, and Genome Engineering. (Version 1.0.0)
-Zenodo. https://doi.org/10.5281/zenodo.18850205.* GitHub. [https://github.com/YASH4-HD/PanGen-AI](https://github.com/YASH4-HD/PanGen-AI)
+Zenodo. https://doi.org/10.5281/zenodo.18988911.* GitHub. [https://github.com/YASH4-HD/PanGen-AI](https://github.com/YASH4-HD/PanGen-AI)
 
 ---
 
