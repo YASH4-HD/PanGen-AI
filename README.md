@@ -121,13 +121,16 @@ Allows systematic comparison of simulated knockouts targeting:
 
 ## Interactive Dashboard
 
-The Streamlit interface enables:
+The Streamlit interface provides real-time interaction with genomic datasets.
 
-- Real-time kinetic parameter manipulation  
-- Visualization of NF-κB temporal dynamics  
-- Null-model comparisons  
-- Monte Carlo sensitivity analysis  
-- Automated synergy score export  
+Capabilities include:
+
+- dynamic parameter tuning
+- real-time visualization of genomic analysis
+- mutation heatmaps and genome tracks
+- exportable CSV and figure outputs
+
+The interface enables rapid exploration of genomic hypotheses without requiring extensive programming.  
 
 **Live Web App:**  
 https://cd40-immunosome-tool-yash.streamlit.app/
