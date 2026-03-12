@@ -12,7 +12,7 @@
 <p align="center">
   <img src="dashboard.png" width="900">
 </p>
-** PanGen-AI Suite ** is an interactive computational genomics framework that integrates classical bioinformatics algorithms with modern deep learning approaches to explore genomic variation, pangenome structures, and CRISPR genome engineering strategies.
+**PanGen-AI Suite** is an interactive computational genomics framework that integrates classical bioinformatics algorithms with modern deep learning approaches to explore genomic variation, pangenome structures, and CRISPR genome engineering strategies.
 
 The platform provides a unified interface for:
 
