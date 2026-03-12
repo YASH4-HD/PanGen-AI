@@ -70,7 +70,7 @@ Genome Compression & FM-Index Search
 CRISPR Guide RNA Design
    ↓
 Multi-Track Genome Visualization
-```text
+```
 
 Each module can operate independently or as part of an integrated analysis workflow.
 
