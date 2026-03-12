@@ -74,17 +74,26 @@ Applications:
 - structural variation visualization
 
 
-The system is numerically integrated using a fixed-step **Runge–Kutta 4th order (RK4)** solver over a 200-minute simulation window.
 
 ---
 
-### 2️⃣ Null-Model Comparison
+### 2️⃣ DeepNCV – AI Variant Impact Prediction
 
-Feedback inhibition can be disabled (`k6 = 0`, `k7 = 0`) to simulate SOCS1-deficient conditions and compare:
+Deep learning model for functional variant prediction.
 
-- Transient activation (wild-type)  
-- Sustained plateau dynamics (knockout)  
+Capabilities:
 
+- CNN-based DNA sequence analysis
+- mutation impact heatmap generation
+- gradient-based saliency visualization
+- batch variant prediction
+
+
+Applications:
+
+- regulatory variant discovery
+- functional genomics analysis
+- mutation hotspot detection
 ---
 
 ## 3️⃣ Monte Carlo Robustness Analysis
