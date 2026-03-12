@@ -21,7 +21,11 @@ The platform provides a unified interface for:
 - Genome compression and FM-index search algorithms
 - CRISPR guide RNA design
 - Interactive genome track visualization
+
+  
 PanGen-AI aims to serve both as a research prototyping platform and an educational computational genomics toolkit.
+
+
 This repository accompanies the preprint:
 
 > **Nama, Y. (2026).**  
