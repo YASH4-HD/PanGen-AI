@@ -133,7 +133,7 @@ Capabilities include:
 The interface enables rapid exploration of genomic hypotheses without requiring extensive programming.  
 
 **Live Web App:**  
-https://cd40-immunosome-tool-yash.streamlit.app/
+https://pangen-ai-yash.streamlit.app/
 
 ---
 ## 📂 Repository Structure
