@@ -35,25 +35,44 @@ This repository accompanies the preprint:
 
 ## Biological Motivation
 
-CD40 activation plays a critical role in dendritic cell maturation and anti-tumor immunity. However, signaling amplitude and duration are tightly regulated by intracellular feedback loops, particularly **SOCS1-mediated attenuation**.
+Understanding genomic variation requires integration of multiple computational approaches:
 
-This framework addresses three key questions:
+- Comparative genomics to analyze variation across genomes
+- Machine learning to predict functional variant impact
+- Genome indexing algorithms for efficient sequence search
+- Genome editing design tools for experimental validation
 
-1. How does scaffold-mediated receptor clustering alter NF-κB dynamics?  
-2. What is the quantitative impact of SOCS1 deletion on signaling persistence?  
-3. Can multi-parameter modeling predict synergistic immunotherapeutic strategies?  
+PanGen-AI provides a modular environment where these analyses can be performed within a single computational framework.
+
+
+The platform addresses questions such as:
+
+1. How can graph-based models represent variation across genomes?
+2. Which genomic positions are predicted to have high functional impact?
+3. How can computational predictions guide CRISPR editing strategies?
+4. How can compressed genome indexing enable rapid sequence search?
 
 ---
 
-## Model Architecture
+## System Architecture
 
-### 1️⃣ Core ODE System
+### 1️⃣ Pangenome Explorer
 
-The signaling network models:
+Graph-based representation of genomic variation.
+Features:
 
-- TRAF6 recruitment  
-- NF-κB activation  
-- SOCS1 negative feedback  
+- k-mer based pangenome graph construction
+- visualization of sequence relationships
+- conservation analysis across sequences
+- FASTA dataset input support
+
+
+Applications:
+
+- comparative genomics
+- microbial genome analysis
+- structural variation visualization
+
 
 The system is numerically integrated using a fixed-step **Runge–Kutta 4th order (RK4)** solver over a 200-minute simulation window.
 
