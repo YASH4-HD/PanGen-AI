@@ -1109,6 +1109,32 @@ def generate_sample_annotations(sequence_length: int):
     return '\n'.join(filtered)
 
 
+def find_relaxed_crispr_sites(sequence: str, max_sites: int = 10):
+    """Fallback CRISPR-like site finder using NGG/NAG PAM without quality filtering."""
+    seq = sanitize_dna_sequence(sequence)
+    rows = []
+    for i in range(max(0, len(seq) - 23 + 1)):
+        window = seq[i:i + 23]
+        pam = window[20:23]
+        if len(pam) == 3 and pam[1:] in {"GG", "AG"}:
+            guide = window[:20]
+            rows.append({
+                "Position": i,
+                "Guide RNA": guide,
+                "PAM": pam,
+                "Fallback": True,
+            })
+    if not rows:
+        return pd.DataFrame(columns=["Position", "Guide RNA", "PAM", "Fallback"])
+    return pd.DataFrame(rows).head(max_sites)
+
+
+def queue_module7_annotation_update(text: str, level: str = "success", message: str = "Annotations updated."):
+    """Queue Module 7 annotation textbox updates safely before widget render."""
+    st.session_state["module7_pending_annotation_input"] = text
+    st.session_state["module7_flash_message"] = (level, message)
+
+
 # -----------------------------
 # Streamlit UI
 # -----------------------------
@@ -2228,6 +2254,10 @@ elif page == "Module 7: Genome Annotation Explorer":
     if "module7_annotation_input" not in st.session_state:
         st.session_state["module7_annotation_input"] = ""
 
+    pending_text = st.session_state.pop("module7_pending_annotation_input", None)
+    if pending_text is not None:
+        st.session_state["module7_annotation_input"] = pending_text
+
     flash = st.session_state.pop("module7_flash_message", None)
     if flash:
         level, message = flash
@@ -2240,8 +2270,7 @@ elif page == "Module 7: Genome Annotation Explorer":
             clean_seq = sanitize_dna_sequence(sequence_input)
             if clean_seq:
                 sample_ann = generate_sample_annotations(len(clean_seq))
-                st.session_state["module7_annotation_input"] = sample_ann
-                st.session_state["module7_flash_message"] = ("success", "Sample annotations loaded!")
+                queue_module7_annotation_update(sample_ann, "success", "Sample annotations loaded!")
                 st.rerun()
 
     with col1:
@@ -2345,30 +2374,47 @@ elif page == "Module 7: Genome Annotation Explorer":
                         end = start + 19  # 20bp guide
                         crispr_annotations.append(f"{start}\t{end}\tCRISPR\tGuide: {row['Guide RNA']}")
                     
-                    st.session_state["module7_annotation_input"] = "\n".join(crispr_annotations)
-                    st.session_state["module7_flash_message"] = ("success", f"Imported {len(crispr_annotations)} CRISPR sites!")
+                    queue_module7_annotation_update("\n".join(crispr_annotations), "success", f"Imported {len(crispr_annotations)} CRISPR sites!")
                     st.rerun()
                 else:
-                    st.warning("No CRISPR sites found in the sequence.")
+                    relaxed_df = find_relaxed_crispr_sites(clean_seq)
+                    if not relaxed_df.empty:
+                        relaxed_annotations = []
+                        for _, row in relaxed_df.iterrows():
+                            start = int(row["Position"]) + 1
+                            end = start + 19
+                            relaxed_annotations.append(f"{start}\t{end}\tCRISPR\tFallback {row['PAM']} guide: {row['Guide RNA']}")
+                        queue_module7_annotation_update(
+                            "\n".join(relaxed_annotations),
+                            "warning",
+                            f"No strict NGG guides found; imported {len(relaxed_annotations)} fallback CRISPR-like sites (NGG/NAG).",
+                        )
+                        st.rerun()
+                    else:
+                        st.warning("No CRISPR sites found in the sequence.")
     
     with col2:
         if st.button("Import Variants from Module 2", key="module7_import_variants"):
             clean_seq = sanitize_dna_sequence(sequence_input)
             if clean_seq and len(clean_seq) >= 10:
                 baseline, scan_df = mutation_scan(clean_seq[:min(90, len(clean_seq))])
-                # Get high-impact variants
-                high_impact = scan_df[scan_df['DeltaVsBaseline'].abs() > 0.1]
-                if not high_impact.empty:
-                    variant_annotations = []
-                    for _, row in high_impact.iterrows():
-                        pos = row['Position']
-                        variant_annotations.append(f"{pos}\t{pos}\tSNP\t{row['Ref']}→{row['Alt']} (Δ={row['DeltaVsBaseline']:.3f})")
-                    
-                    st.session_state["module7_annotation_input"] = "\n".join(variant_annotations)
-                    st.session_state["module7_flash_message"] = ("success", f"Imported {len(variant_annotations)} high-impact variants!")
-                    st.rerun()
-                else:
-                    st.warning("No high-impact variants found.")
+                # Get high-impact variants, with fallback to top absolute deltas
+                high_impact = scan_df[scan_df['DeltaVsBaseline'].abs() > 0.03]
+                selected_df = high_impact
+                level = "success"
+                msg = f"Imported {len(high_impact)} high-impact variants!"
+                if selected_df.empty:
+                    selected_df = scan_df.reindex(scan_df['DeltaVsBaseline'].abs().sort_values(ascending=False).head(8).index)
+                    level = "warning"
+                    msg = "No variants passed strict threshold; imported top 8 absolute-impact variants instead."
+
+                variant_annotations = []
+                for _, row in selected_df.iterrows():
+                    pos = int(row['Position'])
+                    variant_annotations.append(f"{pos}\t{pos}\tSNP\t{row['Ref']}→{row['Alt']} (Δ={row['DeltaVsBaseline']:.3f})")
+
+                queue_module7_annotation_update("\n".join(variant_annotations), level, msg)
+                st.rerun()
     
     with col3:
         if st.button("Generate Gene Annotations", key="module7_generate_genes"):
@@ -2393,8 +2439,7 @@ elif page == "Module 7: Genome Annotation Explorer":
                     gene_annotations.append(f"{gene2_start+20}\t{gene2_start+40}\tExon\tExon 3")
                     gene_annotations.append(f"{gene2_start+41}\t{gene2_start+60}\tExon\tExon 4")
                 
-                st.session_state["module7_annotation_input"] = "\n".join(gene_annotations)
-                st.session_state["module7_flash_message"] = ("success", "Generated sample gene annotations!")
+                queue_module7_annotation_update("\n".join(gene_annotations), "success", "Generated sample gene annotations!")
                 st.rerun()
             else:
                 st.warning("Sequence too short for meaningful gene annotation (minimum 50 bp).")
