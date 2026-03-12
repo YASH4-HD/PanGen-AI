@@ -96,27 +96,43 @@ Applications:
 - mutation hotspot detection
 ---
 
-## 3️⃣ Monte Carlo Robustness Analysis
+## 3️⃣ Geno-Compressor (BWT + FM-Index)
 
-- ±20% stochastic perturbation of kinetic parameters  
-- n = 50 simulations  
-- Quantifies structural stability of transient peak dynamics  
+Genome compression and sequence search module.
+
+Implements:
+
+- Burrows-Wheeler Transform (BWT)
+- FM-index construction
+- backward search algorithm
+- compressed genome pattern matching
+
+
+Applications:
+
+- genome indexing
+- sequence alignment preprocessing
+- bioinformatics algorithm education
 
 ---
 
-## 4️⃣ CRISPR Synergy Quantification
+## 4️⃣ CRISPR Guide Designer
 
-Modified Bliss Independence metric:
+Identification of candidate CRISPR-Cas9 guide RNAs.
 
-```python
-Synergy = (AUC_agonist_KO - AUC_agonist) / AUC_agonist * 100
-```
-Allows systematic comparison of simulated knockouts targeting:
+Features:
 
-- **SOCS1**  
-- **PD-L1**  
-- **CTLA-4**  
-- **IL-10**  
+- PAM-aware NGG scanning
+- GC content filtering
+- off-target similarity estimation
+- candidate guide ranking
+
+
+Applications:
+
+- genome editing experiments
+- functional genomics perturbation studies
+
 ---
 
 ## Interactive Dashboard
