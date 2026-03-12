@@ -196,4 +196,7 @@ Zenodo. https://doi.org/10.5281/zenodo.18850205.* GitHub. [https://github.com/YA
 *   **LinkedIn:** [Yashwant Nama](https://www.linkedin.com/in/yashwant-nama-232b2437b/)
 *   **Project Website:** [Streamlit Dashboard](https://pangen-ai-yash.streamlit.app/)
 
+---
+
+💡 **PanGen-AI combines classical bioinformatics algorithms with modern AI approaches to create an integrated genomic analysis environment.**
 
