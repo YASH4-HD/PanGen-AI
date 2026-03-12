@@ -2224,27 +2224,34 @@ elif page == "Module 7: Genome Annotation Explorer":
     # Annotation input
     st.markdown("### Genome Annotations")
     st.markdown("**Format**: Start(1-based) → End → Type → Description (tab-separated)")
-    
+
+    if "module7_annotation_input" not in st.session_state:
+        st.session_state["module7_annotation_input"] = ""
+
+    flash = st.session_state.pop("module7_flash_message", None)
+    if flash:
+        level, message = flash
+        getattr(st, level)(message)
+
     col1, col2 = st.columns([3, 1])
-    
+
     with col2:
         if st.button("Load Sample Annotations", key="module7_sample_btn"):
             clean_seq = sanitize_dna_sequence(sequence_input)
             if clean_seq:
                 sample_ann = generate_sample_annotations(len(clean_seq))
-                st.session_state.module7_annotations = sample_ann
-                st.success("Sample annotations loaded!")
+                st.session_state["module7_annotation_input"] = sample_ann
+                st.session_state["module7_flash_message"] = ("success", "Sample annotations loaded!")
                 st.rerun()
-    
+
     with col1:
         annotation_input = st.text_area(
             "Enter Annotations (one per line):",
-            value=st.session_state.get("module7_annotations", ""),
             key="module7_annotation_input",
             height=150,
             help="Example: 1\t100\tGene\tSample Gene"
         )
-    
+
     # Display annotation format example
     with st.expander("Annotation Format Examples"):
         st.code("""
@@ -2338,8 +2345,8 @@ elif page == "Module 7: Genome Annotation Explorer":
                         end = start + 19  # 20bp guide
                         crispr_annotations.append(f"{start}\t{end}\tCRISPR\tGuide: {row['Guide RNA']}")
                     
-                    st.session_state.module7_annotations = "\n".join(crispr_annotations)
-                    st.success(f"Imported {len(crispr_annotations)} CRISPR sites!")
+                    st.session_state["module7_annotation_input"] = "\n".join(crispr_annotations)
+                    st.session_state["module7_flash_message"] = ("success", f"Imported {len(crispr_annotations)} CRISPR sites!")
                     st.rerun()
                 else:
                     st.warning("No CRISPR sites found in the sequence.")
@@ -2357,8 +2364,8 @@ elif page == "Module 7: Genome Annotation Explorer":
                         pos = row['Position']
                         variant_annotations.append(f"{pos}\t{pos}\tSNP\t{row['Ref']}→{row['Alt']} (Δ={row['DeltaVsBaseline']:.3f})")
                     
-                    st.session_state.module7_annotations = "\n".join(variant_annotations)
-                    st.success(f"Imported {len(variant_annotations)} high-impact variants!")
+                    st.session_state["module7_annotation_input"] = "\n".join(variant_annotations)
+                    st.session_state["module7_flash_message"] = ("success", f"Imported {len(variant_annotations)} high-impact variants!")
                     st.rerun()
                 else:
                     st.warning("No high-impact variants found.")
@@ -2386,8 +2393,8 @@ elif page == "Module 7: Genome Annotation Explorer":
                     gene_annotations.append(f"{gene2_start+20}\t{gene2_start+40}\tExon\tExon 3")
                     gene_annotations.append(f"{gene2_start+41}\t{gene2_start+60}\tExon\tExon 4")
                 
-                st.session_state.module7_annotations = "\n".join(gene_annotations)
-                st.success("Generated sample gene annotations!")
+                st.session_state["module7_annotation_input"] = "\n".join(gene_annotations)
+                st.session_state["module7_flash_message"] = ("success", "Generated sample gene annotations!")
                 st.rerun()
             else:
                 st.warning("Sequence too short for meaningful gene annotation (minimum 50 bp).")
