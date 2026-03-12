@@ -58,6 +58,7 @@ The platform addresses questions such as:
 
 PanGen-AI follows a modular architecture integrating multiple computational genomics components.
 
+```text
 DNA Input
    ↓
 Pangenome Graph Construction
@@ -69,6 +70,7 @@ Genome Compression & FM-Index Search
 CRISPR Guide RNA Design
    ↓
 Multi-Track Genome Visualization
+```text
 
 Each module can operate independently or as part of an integrated analysis workflow.
 
