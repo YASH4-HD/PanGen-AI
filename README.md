@@ -56,6 +56,11 @@ The platform addresses questions such as:
 
 ## System Architecture
 
+---
+
+
+## Core Modules
+
 ### 1️⃣ Pangenome Explorer
 
 Graph-based representation of genomic variation.
