@@ -173,6 +173,21 @@ The interface enables rapid exploration of genomic hypotheses without requiring 
 https://pangen-ai-yash.streamlit.app/
 
 ---
+
+## Example Datasets
+
+PanGen-AI includes curated example datasets for demonstration:
+
+| Dataset                    | Purpose                       |
+| -------------------------- | ----------------------------- |
+| Bacterial genome fragments | Pangenome graph construction  |
+| BRCA1 regulatory sequence  | Variant impact prediction     |
+| SARS-CoV-2 genome fragment | FM-index search demonstration |
+| Human gene exon region     | CRISPR guide design           |
+
+
+---
+
 ## 📂 Repository Structure
 
 ```text
