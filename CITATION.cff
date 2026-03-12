@@ -8,7 +8,7 @@ authors:
 title: "PanGen-AI Suite"
 version: "1.0.0"
 date-released: 2026-03-12
-doi: "10.5281/zenodo.18850205"
+doi: ""
 repository-code: "https://github.com/YASH4-HD/PanGen-AI"
 url: "https://pangen-ai-yash.streamlit.app/"
 license: "MIT"
