@@ -25,7 +25,7 @@ PanGen-AI aims to serve both as a research prototyping platform and an education
 This repository accompanies the preprint:
 
 > **Nama, Y. (2026).**  
-> *CD40-Immunosome: A Systems Modeling Framework for CD40–TRAF6 Signaling and CRISPR Synergy.*
+> *An Integrated Deep Learning and Multi-Track Genome Visualization Framework for Pangenomic Data Analysis*
 
 ---
 
