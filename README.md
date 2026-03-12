@@ -153,8 +153,8 @@ CD40-Immunosome-Tool/
 ## 🛠 Installation
 **1️⃣ Clone the repository**
 ```
-git clone https://github.com/YASH4-HD/CD40-Immunosome-Tool.git
-cd CD40-Immunosome-Tool
+git clone https://github.com/YASH4-HD/PanGen-AI-Suite.git
+cd PanGen-AI-Suite
 ```
 **2️⃣ Install dependencies**
 ```
@@ -166,13 +166,15 @@ streamlit run app.py
 ```
 ---
 ## 🔁 Reproducibility
-All simulations are reproducible using:
+All analyses are reproducible using:
 
-- Deterministic RK4 solver
-- Fixed parameter configuration
-- Defined Monte Carlo perturbation range
-- Explicit synergy scoring formula
-- No proprietary datasets are required.
+- deterministic model initialization
+- defined dataset inputs
+- explicit algorithm implementations
+- open-source Python libraries
+
+The platform does not require proprietary datasets.
+
 ---
 
 ## 📜 Citation
