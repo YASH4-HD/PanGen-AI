@@ -821,7 +821,7 @@ def create_genome_browser_tracks(dna_sequence: str):
     }
 
 
-def create_genome_browser_figure(track_data: dict):
+def create_genome_browser_figure(track_data: dict, active_tracks=None):
     """Create multi-track genome browser visualization using Plotly subplots."""
     positions = track_data['positions']
 
@@ -840,22 +840,22 @@ def create_genome_browser_figure(track_data: dict):
         fig.update_layout(height=400)
         return fig
 
-    # Create subplots (5 rows, 1 column)
+    if active_tracks is None:
+        active_tracks = ["Variant Impact", "CRISPR Guides", "Gene Annotation", "Protein Coding"]
+
+    subplot_titles = ["DNA Sequence"] + active_tracks
+    total_rows = len(subplot_titles)
+
     fig = make_subplots(
-        rows=5,
+        rows=total_rows,
         cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.08,
-        subplot_titles=(
-            "DNA Sequence",
-            "Variant Impact",
-            "CRISPR Guides",
-            "Gene Annotation",
-            "Protein Coding",
-        ),
+        vertical_spacing=0.06,
+        subplot_titles=tuple(subplot_titles),
     )
 
-    # Track 1: DNA Sequence
+    # DNA track is always visible
+    current_row = 1
     fig.add_trace(
         go.Heatmap(
             z=[track_data['dna_sequence']],
@@ -865,81 +865,83 @@ def create_genome_browser_figure(track_data: dict):
             showscale=False,
             hovertemplate='Position: %{x}<br>Base Value: %{z}<extra></extra>',
         ),
-        row=1,
+        row=current_row,
         col=1,
     )
+    current_row += 1
 
-    # Track 2: Variant Impact
-    fig.add_trace(
-        go.Heatmap(
-            z=[track_data['variant_impact']],
-            x=positions,
-            y=[""],
-            colorscale="Reds",
-            showscale=False,
-            hovertemplate='Position: %{x}<br>Impact Score: %{z:.3f}<extra></extra>',
-        ),
-        row=2,
-        col=1,
-    )
+    # Optional tracks in checkbox order
+    if "Variant Impact" in active_tracks:
+        fig.add_trace(
+            go.Heatmap(
+                z=[track_data['variant_impact']],
+                x=positions,
+                y=[""],
+                colorscale="Reds",
+                showscale=False,
+                hovertemplate='Position: %{x}<br>Impact Score: %{z:.3f}<extra></extra>',
+            ),
+            row=current_row,
+            col=1,
+        )
+        current_row += 1
 
-    # Track 3: CRISPR Guides
-    fig.add_trace(
-        go.Heatmap(
-            z=[track_data['crispr_guides']],
-            x=positions,
-            y=[""],
-            colorscale="Blues",
-            showscale=False,
-            hovertemplate='Position: %{x}<br>CRISPR Score: %{z:.2f}<extra></extra>',
-        ),
-        row=3,
-        col=1,
-    )
+    if "CRISPR Guides" in active_tracks:
+        fig.add_trace(
+            go.Heatmap(
+                z=[track_data['crispr_guides']],
+                x=positions,
+                y=[""],
+                colorscale="Blues",
+                showscale=False,
+                hovertemplate='Position: %{x}<br>CRISPR Score: %{z:.2f}<extra></extra>',
+            ),
+            row=current_row,
+            col=1,
+        )
+        current_row += 1
 
-    # Track 4: Gene Annotation
-    fig.add_trace(
-        go.Heatmap(
-            z=[track_data['gene_annotation']],
-            x=positions,
-            y=[""],
-            colorscale="Greens",
-            showscale=False,
-            hovertemplate='Position: %{x}<br>Gene Region: %{z}<extra></extra>',
-        ),
-        row=4,
-        col=1,
-    )
+    if "Gene Annotation" in active_tracks:
+        fig.add_trace(
+            go.Heatmap(
+                z=[track_data['gene_annotation']],
+                x=positions,
+                y=[""],
+                colorscale="Greens",
+                showscale=False,
+                hovertemplate='Position: %{x}<br>Gene Region: %{z}<extra></extra>',
+            ),
+            row=current_row,
+            col=1,
+        )
+        current_row += 1
 
-    # Track 5: Protein Coding
-    fig.add_trace(
-        go.Heatmap(
-            z=[track_data['protein_coding']],
-            x=positions,
-            y=[""],
-            colorscale="Purples",
-            showscale=False,
-            hovertemplate='Position: %{x}<br>Coding Region: %{z}<extra></extra>',
-        ),
-        row=5,
-        col=1,
-    )
+    if "Protein Coding" in active_tracks:
+        fig.add_trace(
+            go.Heatmap(
+                z=[track_data['protein_coding']],
+                x=positions,
+                y=[""],
+                colorscale="Purples",
+                showscale=False,
+                hovertemplate='Position: %{x}<br>Coding Region: %{z}<extra></extra>',
+            ),
+            row=current_row,
+            col=1,
+        )
 
-    # Update layout for proper height and look
     fig.update_layout(
         title_text="Interactive Genome Browser",
-        height=850,
+        height=max(360, 180 * total_rows),
         showlegend=False,
         margin=dict(l=40, r=40, t=80, b=40),
         hovermode='closest',
     )
 
-    # Add x-axis title only to the bottom track
-    fig.update_xaxes(title_text="Genomic Position", row=5, col=1)
-
-    # Hide y-axis tick labels since subplot titles are shown
+    # Add x-axis title only to the bottom row
+    fig.update_xaxes(title_text="Genomic Position", row=total_rows, col=1)
     fig.update_yaxes(showticklabels=False)
-    
+
     return fig
 
 
@@ -2480,37 +2482,44 @@ elif page == "Module 8: Genome Browser / Multi-Track Visualization":
     # Auto-generate genome browser if DNA sequence is present
     clean_seq = sanitize_dna_sequence(sequence_input)
    
-    if "module8_browser_data" not in st.session_state:
-        st.session_state.module8_browser_data = None
+    if "module8_browser_enabled" not in st.session_state:
+        st.session_state.module8_browser_enabled = False
 
     if st.button("Generate Genome Browser", key="module8_generate_browser"):
+        st.session_state.module8_browser_enabled = True
+
+    active_tracks = []
+    if show_variant_impact:
+        active_tracks.append("Variant Impact")
+    if show_crispr_guides:
+        active_tracks.append("CRISPR Guides")
+    if show_gene_annotation:
+        active_tracks.append("Gene Annotation")
+    if show_protein_coding:
+        active_tracks.append("Protein Coding")
+
+    browser_data = None
+    if st.session_state.module8_browser_enabled:
         if clean_seq and len(clean_seq) >= 20:
             with st.spinner("Generating genome browser tracks..."):
                 start_time = time.time()
-
-                # Limit sequence length for visualization
                 display_seq = clean_seq[:track_length]
-
-                # Create track data
                 track_data = create_genome_browser_tracks(display_seq)
-
-                st.session_state.module8_browser_data = {
+                browser_data = {
                     "display_seq": display_seq,
                     "track_data": track_data,
                     "analysis_time": time.time() - start_time,
+                    "active_tracks": active_tracks,
                 }
         elif clean_seq:
             st.warning("Sequence too short for genome browser visualization. Please provide at least 20 nucleotides.")
-            st.session_state.module8_browser_data = None
         else:
             st.info("Enter a DNA sequence above to generate the interactive genome browser.")
-            st.session_state.module8_browser_data = None
 
-    browser_data = st.session_state.module8_browser_data
     if browser_data:
         display_seq = browser_data["display_seq"]
         track_data = browser_data["track_data"]
-        fig = create_genome_browser_figure(track_data)
+        fig = create_genome_browser_figure(track_data, browser_data["active_tracks"])
 
         st.markdown("### Interactive Genome Browser")
         st.plotly_chart(fig, use_container_width=True)
