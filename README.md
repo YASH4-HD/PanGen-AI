@@ -2,7 +2,7 @@
 ### An Integrated Deep Learning and Multi-Track Genome Visualization Framework for Pangenomic Data Analysis
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://cd40-immunosome-tool-yash.streamlit.app/)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://pangen-ai-yash.streamlit.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18988911.svg)](https://doi.org/10.5281/zenodo.18988911)
